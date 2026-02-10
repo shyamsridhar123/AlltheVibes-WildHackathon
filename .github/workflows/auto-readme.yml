@@ -1,0 +1,112 @@
+name: Auto-Generate Changelog
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'CHANGELOG.md'
+      - 'README.md'
+
+jobs:
+  update-changelog:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get changed files
+        id: changed
+        run: |
+          # Get files changed in the last commit
+          CHANGED=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "initial")
+          echo "files<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGED" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Generate changelog entry
+        run: |
+          DATE=$(date +%Y-%m-%d)
+          PREV_SHA=$(git rev-parse HEAD~1 2>/dev/null || echo "initial")
+          CURR_SHA=$(git rev-parse HEAD)
+          SHORT_PREV=$(echo $PREV_SHA | cut -c1-7)
+          SHORT_CURR=$(echo $CURR_SHA | cut -c1-7)
+          
+          # Get commit messages for this push
+          COMMITS=$(git log --oneline HEAD~1..HEAD 2>/dev/null || git log --oneline -1)
+          
+          # Get changed files with status
+          DIFF_STAT=$(git diff --stat HEAD~1 HEAD 2>/dev/null || echo "Initial commit")
+          
+          # Categorize changes
+          FEATURES=""
+          FIXES=""
+          REFACTORS=""
+          DOCS=""
+          CONFIG=""
+          BREAKING=""
+          OTHER=""
+          
+          while IFS= read -r line; do
+            MSG=$(echo "$line" | sed 's/^[a-f0-9]* //')
+            
+            if echo "$MSG" | grep -qi "^feat"; then
+              FEATURES="${FEATURES}\n- ${MSG}"
+            elif echo "$MSG" | grep -qi "^fix"; then
+              FIXES="${FIXES}\n- ${MSG}"
+            elif echo "$MSG" | grep -qi "^refactor"; then
+              REFACTORS="${REFACTORS}\n- ${MSG}"
+            elif echo "$MSG" | grep -qi "^docs"; then
+              DOCS="${DOCS}\n- ${MSG}"
+            elif echo "$MSG" | grep -qi "^ci\|^chore\|^build\|^config"; then
+              CONFIG="${CONFIG}\n- ${MSG}"
+            elif echo "$MSG" | grep -qi "BREAKING CHANGE\|^break"; then
+              BREAKING="${BREAKING}\n- ${MSG}"
+            else
+              OTHER="${OTHER}\n- ${MSG}"
+            fi
+          done <<< "$COMMITS"
+          
+          # Build the changelog entry
+          ENTRY="## [${DATE}] — Changes \`${SHORT_PREV}\` to \`${SHORT_CURR}\`\n"
+          
+          [ -n "$FEATURES" ] && ENTRY="${ENTRY}\n### 🆕 New Features${FEATURES}\n"
+          [ -n "$FIXES" ] && ENTRY="${ENTRY}\n### 🐛 Bug Fixes${FIXES}\n"
+          [ -n "$REFACTORS" ] && ENTRY="${ENTRY}\n### ♻️ Refactors${REFACTORS}\n"
+          [ -n "$DOCS" ] && ENTRY="${ENTRY}\n### 📝 Documentation${DOCS}\n"
+          [ -n "$CONFIG" ] && ENTRY="${ENTRY}\n### ⚙️ Configuration${CONFIG}\n"
+          [ -n "$BREAKING" ] && ENTRY="${ENTRY}\n### ⚠️ Breaking Changes${BREAKING}\n"
+          [ -n "$OTHER" ] && ENTRY="${ENTRY}\n### 📦 Other${OTHER}\n"
+          
+          ENTRY="${ENTRY}\n<details><summary>Files changed</summary>\n\n\`\`\`\n${DIFF_STAT}\n\`\`\`\n</details>\n\n---\n"
+          
+          # Prepend to CHANGELOG.md
+          if [ -f CHANGELOG.md ]; then
+            EXISTING=$(cat CHANGELOG.md)
+            echo -e "# Changelog\n\n${ENTRY}\n${EXISTING}" | sed 's/^# Changelog$//' | sed '1s/^/# Changelog\n/' > CHANGELOG.md
+          else
+            echo -e "# Changelog\n\n${ENTRY}" > CHANGELOG.md
+          fi
+
+      - name: Update README recent changes
+        run: |
+          if [ -f README.md ]; then
+            # Check if Recent Changes section exists
+            if grep -q "## Recent Changes" README.md; then
+              # Update the recent changes section
+              sed -i '/## Recent Changes/,/## /{/## Recent Changes/!{/## /!d}}' README.md
+              sed -i '/## Recent Changes/a\\nSee [CHANGELOG.md](CHANGELOG.md) for a full history of changes.\n' README.md
+            fi
+          fi
+
+      - name: Commit and push changes
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add CHANGELOG.md README.md
+          git diff --staged --quiet || git commit -m "docs: auto-update changelog and readme [skip ci]"
+          git push
