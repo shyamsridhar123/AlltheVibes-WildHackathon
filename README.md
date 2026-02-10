@@ -74,7 +74,8 @@ python vibe_oracle.py "what should I build?"
 | Contribution | Author | Description | Run it |
 |---|---|---|---|
 | 📝 Auto-Changelog Engine | dc995 | Copilot skill + GitHub Action that auto-generates CHANGELOG.md on every push | Automatic on push to `main` |
-| 🔮 Vibe Oracle | ZacharyLuz | Chaotic vibe generator — ask it anything, receive cosmic wisdom | `python vibe_oracle.py "your question"` |
+| � Knock Knock Agent | — | AI agent that responds to everything with knock-knock jokes (OpenAI-powered) | `cd KnockKnock && python knock_knock_agent.py` |
+| �🔮 Vibe Oracle | ZacharyLuz | Chaotic vibe generator — ask it anything, receive cosmic wisdom | `python vibe_oracle.py "your question"` |
 | 🐝 Swarm Mascot | ZacharyLuz | ASCII art mascot + banner for the swarm | `python swarm_mascot.py` |
 | 🐠 Nemo README | ZacharyLuz | This README with Nemo ASCII art and contribution guide | You're reading it |
 
@@ -112,23 +113,21 @@ On every push to `main`, the workflow:
 AlltheVibes-WildHackathon/
 ├── .github/
 │   ├── copilot-instructions.md              # Global Copilot behavior rules
-│   ├── instructions/
-│   │   ├── changelog-format.instructions.md # Changelog formatting rules
-│   │   └── readme-update.instructions.md    # README update rules
-│   ├── prompts/
-│   │   ├── generate-change-readme.prompt.md # Generate changelog from changes
-│   │   ├── generate-full-readme.prompt.md   # Generate a full README
-│   │   └── summarize-changes.prompt.md      # Summarize changes since last entry
+│   ├── instructions/                        # Copilot instruction files
+│   ├── prompts/                             # Copilot prompt files
 │   └── workflows/
 │       └── auto-readme.yml                  # GitHub Action for auto-changelog
 ├── .vscode/
 │   └── skills/
-│       └── readme-changelog-generator/
-│           └── SKILL.md                     # Copilot skill definition
+│       └── readme-changelog-generator/      # Copilot skill definition
+├── KnockKnock/                              # 🚪 Knock Knock Joke Agent
+│   ├── knock_knock_agent.py                 # The agent itself
+│   ├── requirements.txt                     # Python deps
+│   └── README.md                            # Setup instructions
 ├── CHANGELOG.md                             # Auto-generated changelog
 ├── README.md                                # This file (you are here 🐠)
-├── swarm_mascot.py                          # ASCII swarm mascot
-└── vibe_oracle.py                           # Chaotic vibe generator
+├── swarm_mascot.py                          # 🐝 ASCII swarm mascot
+└── vibe_oracle.py                           # 🔮 Chaotic vibe generator
 ```
 
 ---
