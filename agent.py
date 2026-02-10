@@ -1,7 +1,7 @@
 """
-Agent powered by Claude Opus 4.5 on Azure AI Foundry.
+Agent powered by a local Ollama model.
 
-Uses the Azure AI Inference SDK with an agentic tool-use loop:
+Uses Ollama's OpenAI-compatible API with an agentic tool-use loop:
   1. Send conversation + tool definitions to the model
   2. If the model returns tool_calls → execute them, append results
   3. Repeat until the model returns a final text response
@@ -13,22 +13,11 @@ import json
 import os
 import sys
 
+import httpx
 from dotenv import load_dotenv
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
-
-from azure.ai.inference import ChatCompletionsClient
-from azure.ai.inference.models import (
-    ChatCompletionsToolDefinition,
-    ChatRequestMessage,
-    FunctionDefinition,
-    SystemMessage,
-    UserMessage,
-    AssistantMessage,
-    ToolMessage,
-)
-from azure.core.credentials import AzureKeyCredential
 
 from tools import execute_tool, get_tool_definitions
 
@@ -39,34 +28,48 @@ from tools import execute_tool, get_tool_definitions
 load_dotenv()
 console = Console()
 
-ENDPOINT = os.environ.get("AZURE_AI_ENDPOINT", "")
-API_KEY = os.environ.get("AZURE_AI_API_KEY", "")
-MODEL = os.environ.get("AZURE_AI_MODEL", "claude-opus-4-5-20250219")
+OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
+MODEL = os.environ.get("OLLAMA_MODEL", "qwen2.5:7b")
 MAX_TURNS = 15  # safety limit on agentic loop iterations
 
 SYSTEM_PROMPT = """\
-You are a helpful, capable AI assistant. You have access to tools that let you \
-run shell commands, read/write files, do math, get the current time, and search \
-the web. Use tools when they would help answer the user's question accurately. \
+You are a helpful, capable AI assistant with a sharp sense of humor. You have \
+access to tools that let you run shell commands, read/write files, do math, get \
+the current time, search the web, and roast the other AI agents in your system. \
+Use tools when they would help answer the user's question accurately. \
+When the user asks you to roast agents, use the roast_agents tool and then \
+present the results with your own comedic commentary. Feel free to be savage. \
 Think step-by-step. When you have a final answer, respond directly to the user.\
 """
 
 
-def _build_tool_params() -> list[ChatCompletionsToolDefinition]:
-    """Convert our tool registry into Azure SDK tool definitions."""
-    tools = []
-    for defn in get_tool_definitions():
-        func = defn["function"]
-        tools.append(
-            ChatCompletionsToolDefinition(
-                function=FunctionDefinition(
-                    name=func["name"],
-                    description=func["description"],
-                    parameters=func["parameters"],
-                )
-            )
-        )
-    return tools
+def _build_tool_params() -> list[dict]:
+    """Return tool definitions in OpenAI function-calling format."""
+    return get_tool_definitions()
+
+
+# ---------------------------------------------------------------------------
+# Ollama OpenAI-compatible API client
+# ---------------------------------------------------------------------------
+
+
+def _chat_completion(messages: list[dict], tools: list[dict]) -> dict:
+    """Call Ollama's /api/chat endpoint and return the parsed response."""
+    payload: dict = {
+        "model": MODEL,
+        "messages": messages,
+        "stream": False,
+    }
+    if tools:
+        payload["tools"] = tools
+
+    resp = httpx.post(
+        f"{OLLAMA_BASE_URL}/api/chat",
+        json=payload,
+        timeout=300,  # local models can be slow
+    )
+    resp.raise_for_status()
+    return resp.json()
 
 
 # ---------------------------------------------------------------------------
@@ -76,61 +79,44 @@ def _build_tool_params() -> list[ChatCompletionsToolDefinition]:
 
 def run_agent(user_input: str, messages: list[dict]) -> str:
     """
-    Run the agentic loop: send messages to Claude, execute any tool calls,
+    Run the agentic loop: send messages to the model, execute any tool calls,
     and repeat until a final text response is produced.
     Returns the assistant's final text reply.
     """
-    client = ChatCompletionsClient(
-        endpoint=ENDPOINT,
-        credential=AzureKeyCredential(API_KEY),
-    )
     tool_defs = _build_tool_params()
 
     # Add the new user message
     messages.append({"role": "user", "content": user_input})
 
     for turn in range(MAX_TURNS):
-        # Build the SDK message objects from our dict history
-        sdk_messages = _to_sdk_messages(messages)
+        response = _chat_completion(messages, tool_defs)
+        assistant_msg = response.get("message", {})
 
-        response = client.complete(
-            model=MODEL,
-            messages=sdk_messages,
-            tools=tool_defs if tool_defs else None,
-            temperature=1,  # Claude recommended default
-            max_tokens=4096,
-        )
+        # Normalize: Ollama returns content as string (may be empty)
+        content = assistant_msg.get("content", "")
+        tool_calls = assistant_msg.get("tool_calls", None)
 
-        choice = response.choices[0]
-        assistant_msg = choice.message
-
-        # Add assistant response to history
-        msg_dict: dict = {"role": "assistant", "content": assistant_msg.content or ""}
-        if assistant_msg.tool_calls:
-            msg_dict["tool_calls"] = [
-                {
-                    "id": tc.id,
-                    "type": "function",
-                    "function": {
-                        "name": tc.function.name,
-                        "arguments": tc.function.arguments,
-                    },
-                }
-                for tc in assistant_msg.tool_calls
-            ]
+        # Build the assistant message dict for history
+        msg_dict: dict = {"role": "assistant", "content": content}
+        if tool_calls:
+            msg_dict["tool_calls"] = tool_calls
         messages.append(msg_dict)
 
         # If no tool calls, we have a final response
-        if not assistant_msg.tool_calls:
-            return assistant_msg.content or ""
+        if not tool_calls:
+            return content or "(no response)"
 
         # Execute each tool call
-        for tc in assistant_msg.tool_calls:
-            tool_name = tc.function.name
-            try:
-                tool_args = json.loads(tc.function.arguments)
-            except json.JSONDecodeError:
-                tool_args = {}
+        for tc in tool_calls:
+            func_info = tc.get("function", {})
+            tool_name = func_info.get("name", "")
+            tool_args = func_info.get("arguments", {})
+            # Ollama may pass arguments as dict or JSON string
+            if isinstance(tool_args, str):
+                try:
+                    tool_args = json.loads(tool_args)
+                except json.JSONDecodeError:
+                    tool_args = {}
 
             console.print(
                 f"  [dim]⚙ Calling tool:[/dim] [bold cyan]{tool_name}[/bold cyan]"
@@ -144,7 +130,6 @@ def run_agent(user_input: str, messages: list[dict]) -> str:
             messages.append(
                 {
                     "role": "tool",
-                    "tool_call_id": tc.id,
                     "content": result,
                 }
             )
@@ -152,64 +137,49 @@ def run_agent(user_input: str, messages: list[dict]) -> str:
     return "⚠ Reached maximum tool-use turns. Here's what I have so far."
 
 
-def _to_sdk_messages(messages: list[dict]) -> list[ChatRequestMessage]:
-    """Convert our dict-based message history to Azure SDK message objects."""
-    sdk_msgs: list[ChatRequestMessage] = []
-    for m in messages:
-        role = m["role"]
-        if role == "system":
-            sdk_msgs.append(SystemMessage(content=m["content"]))
-        elif role == "user":
-            sdk_msgs.append(UserMessage(content=m["content"]))
-        elif role == "assistant":
-            msg = AssistantMessage(content=m.get("content", ""))
-            if "tool_calls" in m:
-                from azure.ai.inference.models import (
-                    ChatCompletionsToolCall,
-                    FunctionCall,
-                )
-
-                msg.tool_calls = [
-                    ChatCompletionsToolCall(
-                        id=tc["id"],
-                        function=FunctionCall(
-                            name=tc["function"]["name"],
-                            arguments=tc["function"]["arguments"],
-                        ),
-                    )
-                    for tc in m["tool_calls"]
-                ]
-            sdk_msgs.append(msg)
-        elif role == "tool":
-            sdk_msgs.append(
-                ToolMessage(
-                    tool_call_id=m["tool_call_id"],
-                    content=m["content"],
-                )
-            )
-    return sdk_msgs
-
-
 # ---------------------------------------------------------------------------
 # Interactive CLI
 # ---------------------------------------------------------------------------
 
 
-def main():
-    if not ENDPOINT or not API_KEY:
+def _check_ollama() -> bool:
+    """Verify Ollama is reachable and the model is available."""
+    try:
+        resp = httpx.get(f"{OLLAMA_BASE_URL}/api/tags", timeout=5)
+        resp.raise_for_status()
+        models = [m["name"] for m in resp.json().get("models", [])]
+        # Check if our model (or a variant with :latest) is available
+        model_base = MODEL.split(":")[0]
+        available = any(model_base in m for m in models)
+        if not available:
+            console.print(
+                f"[yellow]Model [bold]{MODEL}[/bold] not found locally.[/yellow]\n"
+                f"Available models: {', '.join(models) or '(none)'}\n"
+                f"Pull it with: [bold]ollama pull {MODEL}[/bold]"
+            )
+            return False
+        return True
+    except httpx.ConnectError:
         console.print(
-            "[red bold]Error:[/red bold] Set AZURE_AI_ENDPOINT and AZURE_AI_API_KEY "
-            "in your .env file. See .env.example for details."
+            f"[red bold]Error:[/red bold] Cannot connect to Ollama at "
+            f"[bold]{OLLAMA_BASE_URL}[/bold].\n"
+            "Make sure Ollama is running: [bold]ollama serve[/bold]\n"
+            "Install from: https://ollama.com"
         )
+        return False
+
+
+def main():
+    if not _check_ollama():
         sys.exit(1)
 
     console.print(
         Panel(
-            "[bold]Agent powered by Claude Opus 4.5 on Azure AI[/bold]\n"
+            f"[bold]Agent powered by {MODEL} via Ollama[/bold]\n"
             "Tools: calculator, shell_command, read_file, write_file, "
-            "web_search, get_current_datetime\n\n"
+            "web_search, get_current_datetime, roast_agents\n\n"
             "Type [bold green]quit[/bold green] or [bold green]exit[/bold green] to stop.",
-            title="🤖 Azure AI Agent",
+            title="🤖 Ollama Agent",
             border_style="blue",
         )
     )
