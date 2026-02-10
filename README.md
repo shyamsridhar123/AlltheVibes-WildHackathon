@@ -1,6 +1,6 @@
 # AlltheVibes-WildHackathon
 
-AI Agent powered by **Claude Opus 4.5** on **Azure AI Foundry**, built from scratch with the Azure AI Inference SDK.
+AI Agent running **locally** via **Ollama** — no API keys, no cloud, fully private.
 
 ## What it does
 
@@ -16,12 +16,29 @@ The agent autonomously decides when to use tools, chains multiple tool calls, an
 
 ## Setup
 
-### 1. Prerequisites
+### 1. Install Ollama
 
-- Python 3.10+
-- An Azure AI Foundry resource with Claude Opus 4.5 deployed ([Azure AI Model Catalog](https://ai.azure.com/explore/models))
+```bash
+# Linux / WSL
+curl -fsSL https://ollama.com/install.sh | sh
 
-### 2. Install dependencies
+# macOS — or download from https://ollama.com
+brew install ollama
+```
+
+### 2. Pull a model
+
+```bash
+# Recommended: good quality + tool-calling support
+ollama pull qwen2.5:7b
+
+# Other options:
+# ollama pull llama3.1:8b
+# ollama pull mistral:7b
+# ollama pull qwen2.5:14b   (needs ~10GB RAM)
+```
+
+### 3. Install Python dependencies
 
 ```bash
 python -m venv .venv
@@ -29,39 +46,39 @@ source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 3. Configure environment
+### 4. Configure (optional)
 
 ```bash
 cp .env.example .env
-# Edit .env with your Azure AI endpoint and API key
+# Edit .env to change model or Ollama URL
 ```
 
-| Variable | Description |
-|----------|-------------|
-| `AZURE_AI_ENDPOINT` | Your Azure AI Foundry model endpoint URL |
-| `AZURE_AI_API_KEY` | API key for authentication |
-| `AZURE_AI_MODEL` | Model name (default: `claude-opus-4-5-20250219`) |
+| Variable | Description | Default |
+| -------- | ----------- | ------- |
+| `OLLAMA_BASE_URL` | Ollama server URL | `http://localhost:11434` |
+| `OLLAMA_MODEL` | Model name | `qwen2.5:7b` |
 
-### 4. Run the agent
+### 5. Run the agent
 
 ```bash
+# Make sure Ollama is running (it auto-starts on macOS, or: ollama serve)
 python agent.py
 ```
 
 ## Architecture
 
-```
+```text
 agent.py    — Main agent loop + CLI interface
 tools.py    — Tool registry, definitions, and implementations
-.env        — Your Azure credentials (not committed)
+.env        — Local config (not committed)
 ```
 
 ### How the agentic loop works
 
 1. User sends a message
-2. Message history + tool definitions sent to Claude Opus 4.5 via Azure AI Inference API
-3. If Claude returns `tool_calls` → execute each tool, append results to history
-4. Repeat step 2-3 until Claude returns a final text response (max 15 turns)
+2. Message history + tool definitions sent to the local model via Ollama's API
+3. If the model returns `tool_calls` → execute each tool, append results to history
+4. Repeat step 2-3 until the model returns a final text response (max 15 turns)
 5. Display the response and wait for next input
 
 ## Adding custom tools

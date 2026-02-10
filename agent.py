@@ -3,7 +3,7 @@ Agent powered by a local Ollama model.
 
 Uses Ollama's OpenAI-compatible API with an agentic tool-use loop:
   1. Send conversation + tool definitions to the model
-  2. If the model returns tool_calls -> execute them, append results
+  2. If the model returns tool_calls → execute them, append results
   3. Repeat until the model returns a final text response
 """
 
@@ -33,26 +33,29 @@ MODEL = os.environ.get("OLLAMA_MODEL", "qwen2.5:7b")
 MAX_TURNS = 15  # safety limit on agentic loop iterations
 
 SYSTEM_PROMPT = """\
-You are a helpful, capable AI assistant. You have access to tools that let you \
-run shell commands, read/write files, do math, get the current time, and search \
-the web. Use tools when they would help answer the user's question accurately. \
+You are a helpful, capable AI assistant with a sharp sense of humor. You have \
+access to tools that let you run shell commands, read/write files, do math, get \
+the current time, search the web, and roast the other AI agents in your system. \
+Use tools when they would help answer the user's question accurately. \
+When the user asks you to roast agents, use the roast_agents tool and then \
+present the results with your own comedic commentary. Feel free to be savage. \
 Think step-by-step. When you have a final answer, respond directly to the user.\
 """
 
 
-def _build_tool_params():
+def _build_tool_params() -> list[dict]:
     """Return tool definitions in OpenAI function-calling format."""
     return get_tool_definitions()
 
 
 # ---------------------------------------------------------------------------
-# Ollama API client
+# Ollama OpenAI-compatible API client
 # ---------------------------------------------------------------------------
 
 
-def _chat_completion(messages, tools):
+def _chat_completion(messages: list[dict], tools: list[dict]) -> dict:
     """Call Ollama's /api/chat endpoint and return the parsed response."""
-    payload = {
+    payload: dict = {
         "model": MODEL,
         "messages": messages,
         "stream": False,
@@ -74,7 +77,7 @@ def _chat_completion(messages, tools):
 # ---------------------------------------------------------------------------
 
 
-def run_agent(user_input, messages):
+def run_agent(user_input: str, messages: list[dict]) -> str:
     """
     Run the agentic loop: send messages to the model, execute any tool calls,
     and repeat until a final text response is produced.
@@ -94,7 +97,7 @@ def run_agent(user_input, messages):
         tool_calls = assistant_msg.get("tool_calls", None)
 
         # Build the assistant message dict for history
-        msg_dict = {"role": "assistant", "content": content}
+        msg_dict: dict = {"role": "assistant", "content": content}
         if tool_calls:
             msg_dict["tool_calls"] = tool_calls
         messages.append(msg_dict)
@@ -139,7 +142,7 @@ def run_agent(user_input, messages):
 # ---------------------------------------------------------------------------
 
 
-def _check_ollama():
+def _check_ollama() -> bool:
     """Verify Ollama is reachable and the model is available."""
     try:
         resp = httpx.get(f"{OLLAMA_BASE_URL}/api/tags", timeout=5)
@@ -174,14 +177,14 @@ def main():
         Panel(
             f"[bold]Agent powered by {MODEL} via Ollama[/bold]\n"
             "Tools: calculator, shell_command, read_file, write_file, "
-            "web_search, get_current_datetime\n\n"
+            "web_search, get_current_datetime, roast_agents\n\n"
             "Type [bold green]quit[/bold green] or [bold green]exit[/bold green] to stop.",
             title="🤖 Ollama Agent",
             border_style="blue",
         )
     )
 
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    messages: list[dict] = [{"role": "system", "content": SYSTEM_PROMPT}]
 
     while True:
         try:
