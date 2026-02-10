@@ -1,6 +1,30 @@
 # Changelog
 
 
+## [2026-02-10] — Changes `555f346` to `412432e`
+
+### 🆕 New Features
+- feat: upgrade MacGyver with agentic powers — subagents, beads, orchestration
+
+### 📦 Other
+- Merge pull request #21 from datorresb/feat/macgyver-extras
+
+<details><summary>Files changed</summary>
+
+```
+ .claude/skills/macgyver/SKILL.md        |  62 +++++++++++++++
+ .github/agents/macgyver.agent.md        | 136 +++++++++++++++++++++++++++-----
+ .github/prompts/macgyver-mode.prompt.md |  32 ++++++++
+ swarm-status.sh                         |  58 ++++++++++++++
+ 4 files changed, 269 insertions(+), 19 deletions(-)
+```
+</details>
+
+---
+
+
+
+
 ## [2026-02-10] — Changes `a94886b` to `ae34b8a`
 
 ### 📦 Other
