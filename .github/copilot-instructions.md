@@ -22,7 +22,7 @@ Agents use `.agent.md` files with YAML frontmatter defining:
 - `handoffs` - Other agents this agent can transfer control to
 - `infer: true` - Enables the agent to be invoked as a subagent
 
-### The Seven Agents
+### The Eight Agents
 | Agent | Purpose | Primary Tools |
 |-------|---------|---------------|
 | `Beth` | Orchestrator - Routes work, spawns subagents | `runSubagent`, search tools |
@@ -32,6 +32,7 @@ Agents use `.agent.md` files with YAML frontmatter defining:
 | `developer` | React/TypeScript/Next.js - UI and full-stack | shadcn-ui skill, shadcn MCP, all editing tools |
 | `security-reviewer` | Security audits, threat modeling, compliance | security-analysis skill |
 | `tester` | QA, accessibility, performance testing | Testing tools |
+| `macgyver` | Improviser - solves problems with whatever's available, builds MCP tools | All tools, subagent delegation |
 
 ### Product Manager vs UX Designer
 
@@ -124,6 +125,7 @@ Apply human-centered design methodology across agent workflows:
 | **Ideate** | `@ux-designer` | Solution exploration, design patterns, prototypes |
 | **Prototype** | `@developer` | Build to learn, rapid iteration, feature spikes |
 | **Test** | `@tester` | Validate assumptions, accessibility audits, performance |
+| **Improvise** | `@macgyver` | Scrappy solutions, tool composition, swarm coordination |
 
 Balance the three lenses: **Desirability** (user wants), **Feasibility** (technically possible), **Viability** (sustainable for business).
 
@@ -186,6 +188,7 @@ export async function deleteUser(userId: string) {
 5. `@developer` → implements in React/TypeScript
 6. `@security-reviewer` → audits for vulnerabilities
 7. `@tester` → verifies quality
+8. `@macgyver` → improvises solutions, builds MCP tools when needed
 
 ### Quick Commands
 ```
@@ -193,6 +196,7 @@ export async function deleteUser(userId: string) {
 @product-manager Create a PRD for [feature]
 @developer Implement [component/feature]
 @tester Write tests for [component]
+@macgyver Solve [problem description]
 ```
 
 ## File Naming Conventions

@@ -23,10 +23,12 @@ AI Agent running **locally** via **Ollama** — no API keys, no cloud, fully pri
        │             │Strategist││searcher││Designer││Builder ││Enforcer │              │
        │             └──────────┘└────────┘└────────┘└────────┘└──────────┘              │
        │                                      │                                          │
-       │                               ┌──────┴──────┐                                   │
-       │                               │ 🛡️  Security │                                   │
-       │                               │   Reviewer   │                                   │
-       │                               └──────────────┘                                   │
+       │                        ┌──────────────┼──────────────┐                           │
+       │                        │              │              │                           │
+       │                  ┌──────────┐   ┌──────────┐   ┌──────────┐                      │
+       │                  │ 🛡️ Secur-│   │ 🧰 Mac-  │   │ 🦈 Shark │                      │
+       │                  │  ity Rev.│   │  Gyver   │   │  bait    │                      │
+       │                  └──────────┘   └──────────┘   └──────────┘                      │
        └─────────────────────────────────────────────────────────────────────────────────┘
 
        ┌─────────────────────────────────────────────────────────────────────────────────┐
@@ -94,7 +96,7 @@ The agent autonomously decides when to use tools, chains multiple tool calls, an
 
 ### Multi-Agent System (GitHub Copilot)
 
-A seven-agent orchestration system built on GitHub Copilot, following IDEO Design Thinking methodology:
+An eight-agent orchestration system built on GitHub Copilot, following IDEO Design Thinking methodology:
 
 | Agent | Role | Purpose |
 |-------|------|---------|
@@ -105,6 +107,7 @@ A seven-agent orchestration system built on GitHub Copilot, following IDEO Desig
 | **Developer** | Builder | React/TypeScript/Next.js implementation, shadcn/ui |
 | **Security Reviewer** | Bodyguard | OWASP audits, threat modeling, compliance checks |
 | **Tester** | Enforcer | QA, accessibility audits, performance testing |
+| **MacGyver** | Improviser | Solves problems with whatever's available, builds MCP tools on the fly |
 
 Agents are defined in `.github/agents/` and leverage domain-specific skills from `.github/skills/`.
 
@@ -128,7 +131,8 @@ Agents are defined in `.github/agents/` and leverage domain-specific skills from
   ├── @ux-designer → designs HOW it works
   ├── @developer → implements in React/TypeScript
   ├── @security-reviewer → audits for vulnerabilities
-  └── @tester → verifies quality
+  ├── @tester → verifies quality
+  └── @macgyver → improvises solutions, builds MCP tools on the fly
 ```
 
 ## Setup
@@ -193,6 +197,7 @@ The agent system works automatically in VS Code with GitHub Copilot. Invoke agen
 @product-manager Create a PRD for [feature]
 @developer Implement [component/feature]
 @tester Write tests for [component]
+@macgyver Solve [problem description]
 ```
 
 ## Architecture
@@ -202,14 +207,17 @@ agent.py                    — CLI agent loop + Ollama interface
 tools.py                    — Tool registry and implementations
 .env                        — Local config (not committed)
 .github/
-├── agents/                 — Agent definitions (7 specialists)
+├── agents/                 — Agent definitions (8 specialists + MacGyver)
 │   ├── beth.agent.md
+│   ├── macgyver.agent.md       ★ Resourceful improviser & orchestrator
 │   ├── developer.agent.md
 │   ├── product-manager.agent.md
 │   ├── ux-designer.agent.md
 │   ├── researcher.agent.md
 │   ├── security-reviewer.agent.md
 │   └── tester.agent.md
+├── prompts/
+│   └── macgyver-mode.prompt.md — Quick-fire MacGyver improvisation mode
 ├── skills/                 — Domain knowledge modules
 │   ├── prd/
 │   ├── shadcn-ui/
@@ -218,6 +226,9 @@ tools.py                    — Tool registry and implementations
 │   ├── web-design-guidelines/
 │   └── security-analysis/
 └── copilot-instructions.md — Global Copilot configuration
+.claude/
+└── skills/
+    └── macgyver/SKILL.md   — Reusable MacGyver methodology skill
 ```
 
 ### How the CLI agentic loop works
