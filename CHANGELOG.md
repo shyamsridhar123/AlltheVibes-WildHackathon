@@ -1,6 +1,25 @@
 # Changelog
 
 
+## [2026-02-10] — Changes `a94886b` to `ae34b8a`
+
+### 📦 Other
+- 🦈 Agent Sharkbait — ocean-themed code review agent (Shark bait, ooh ha ha!)
+
+<details><summary>Files changed</summary>
+
+```
+ sharkbait/README.md          |  64 +++++++
+ sharkbait/agent_sharkbait.py | 387 +++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 451 insertions(+)
+```
+</details>
+
+---
+
+
+
+
 ## [2026-02-10] — Changes `eb78981` to `67d7276`
 
 ### 📦 Other
