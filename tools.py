@@ -5,11 +5,43 @@ Each tool is a function decorated with @tool, which registers it in the TOOL_REG
 
 from __future__ import annotations
 
+import ast
 import json
 import math
+import operator
+import shlex
 import subprocess
 import datetime
+from pathlib import Path
 from typing import Any, Callable
+
+# ---------------------------------------------------------------------------
+# Security Configuration
+# ---------------------------------------------------------------------------
+
+# Workspace root for file operations (prevents path traversal)
+WORKSPACE_ROOT = Path(__file__).parent.resolve()
+
+# Allowed file extensions for read/write operations
+ALLOWED_EXTENSIONS = frozenset({
+    '.py', '.md', '.txt', '.json', '.yaml', '.yml', '.toml', '.cfg', '.ini',
+    '.js', '.ts', '.jsx', '.tsx', '.css', '.html', '.sh', '.bash', '.zsh',
+    '.env.example', '.gitignore', '.dockerignore', 'Dockerfile', 'Makefile',
+})
+
+# Allowlisted shell commands (instead of blocklist approach)
+ALLOWED_COMMANDS = frozenset({
+    'ls', 'cat', 'head', 'tail', 'grep', 'find', 'wc', 'echo', 'pwd', 'date',
+    'git', 'python', 'python3', 'pip', 'which', 'whoami', 'hostname', 'uname',
+    'tree', 'file', 'stat', 'du', 'df', 'env', 'printenv', 'sort', 'uniq',
+    'diff', 'less', 'more', 'awk', 'sed', 'cut', 'tr', 'tee', 'xargs',
+})
+
+# Tools that require user confirmation before execution
+DANGEROUS_TOOLS = frozenset({'shell_command', 'write_file'})
+
+# Maximum file size for write operations (1MB)
+MAX_WRITE_SIZE = 1_000_000
 
 # ---------------------------------------------------------------------------
 # Tool registry
@@ -56,7 +88,239 @@ def execute_tool(name: str, arguments: dict[str, Any]) -> str:
         result = entry["function"](**arguments)
         return result if isinstance(result, str) else json.dumps(result)
     except Exception as exc:
-        return json.dumps({"error": str(exc)})
+        # Sanitize error message to avoid leaking sensitive info
+        error_msg = str(exc)
+        if len(error_msg) > 200:
+            error_msg = error_msg[:200] + "..."
+        return json.dumps({"error": error_msg})
+
+
+def is_dangerous_tool(name: str) -> bool:
+    """Check if a tool requires user confirmation before execution."""
+    return name in DANGEROUS_TOOLS
+
+
+# ---------------------------------------------------------------------------
+# Path Validation Helpers
+# ---------------------------------------------------------------------------
+
+
+def validate_path(path: str, must_exist: bool = True) -> Path:
+    """
+    Validate and resolve a path within the workspace.
+    Raises ValueError if path is invalid or outside workspace.
+    """
+    if not path or not isinstance(path, str):
+        raise ValueError("Path must be a non-empty string")
+    
+    # Reject obviously dangerous patterns early
+    if '\x00' in path:
+        raise ValueError("Null bytes not allowed in path")
+    
+    try:
+        # Resolve the path relative to workspace
+        if Path(path).is_absolute():
+            resolved = Path(path).resolve()
+        else:
+            resolved = (WORKSPACE_ROOT / path).resolve()
+    except (ValueError, OSError) as e:
+        raise ValueError(f"Invalid path: {e}")
+    
+    # Ensure path is within workspace (prevent traversal)
+    try:
+        resolved.relative_to(WORKSPACE_ROOT)
+    except ValueError:
+        raise ValueError("Path traversal detected: access denied. Path must be within workspace.")
+    
+    if must_exist and not resolved.exists():
+        raise ValueError(f"File not found: {path}")
+    
+    return resolved
+
+
+def validate_file_extension(path: Path, for_write: bool = False) -> None:
+    """
+    Validate that file extension is allowed.
+    More restrictive for write operations.
+    """
+    # Get extension (handle files like Dockerfile, Makefile with no extension)
+    suffix = path.suffix.lower() if path.suffix else path.name
+    
+    if suffix not in ALLOWED_EXTENSIONS and path.name not in ALLOWED_EXTENSIONS:
+        raise ValueError(
+            f"File type '{suffix or path.name}' not allowed. "
+            f"Allowed extensions: {sorted(ALLOWED_EXTENSIONS)}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# Safe Expression Evaluator (replaces dangerous eval())
+# ---------------------------------------------------------------------------
+
+
+class SafeExpressionEvaluator:
+    """
+    Safely evaluate mathematical expressions using AST parsing.
+    Only allows numeric literals, basic operators, and whitelisted math functions.
+    """
+    
+    SAFE_BINARY_OPS = {
+        ast.Add: operator.add,
+        ast.Sub: operator.sub,
+        ast.Mult: operator.mul,
+        ast.Div: operator.truediv,
+        ast.FloorDiv: operator.floordiv,
+        ast.Mod: operator.mod,
+        ast.Pow: operator.pow,
+    }
+    
+    SAFE_UNARY_OPS = {
+        ast.UAdd: operator.pos,
+        ast.USub: operator.neg,
+    }
+    
+    SAFE_COMPARE_OPS = {
+        ast.Lt: operator.lt,
+        ast.LtE: operator.le,
+        ast.Gt: operator.gt,
+        ast.GtE: operator.ge,
+        ast.Eq: operator.eq,
+        ast.NotEq: operator.ne,
+    }
+    
+    SAFE_FUNCTIONS = {
+        # Basic math
+        'abs': abs,
+        'round': round,
+        'min': min,
+        'max': max,
+        'sum': sum,
+        'pow': pow,
+        # Math module functions
+        'sqrt': math.sqrt,
+        'sin': math.sin,
+        'cos': math.cos,
+        'tan': math.tan,
+        'asin': math.asin,
+        'acos': math.acos,
+        'atan': math.atan,
+        'atan2': math.atan2,
+        'sinh': math.sinh,
+        'cosh': math.cosh,
+        'tanh': math.tanh,
+        'exp': math.exp,
+        'log': math.log,
+        'log10': math.log10,
+        'log2': math.log2,
+        'floor': math.floor,
+        'ceil': math.ceil,
+        'trunc': math.trunc,
+        'factorial': math.factorial,
+        'gcd': math.gcd,
+        'radians': math.radians,
+        'degrees': math.degrees,
+        'hypot': math.hypot,
+    }
+    
+    SAFE_CONSTANTS = {
+        'pi': math.pi,
+        'e': math.e,
+        'tau': math.tau,
+        'inf': math.inf,
+    }
+    
+    def __init__(self, max_length: int = 500):
+        self.max_length = max_length
+    
+    def evaluate(self, expression: str) -> float | int:
+        """Safely evaluate a mathematical expression."""
+        if not expression or not isinstance(expression, str):
+            raise ValueError("Expression must be a non-empty string")
+        
+        if len(expression) > self.max_length:
+            raise ValueError(f"Expression too long. Max: {self.max_length} characters")
+        
+        try:
+            tree = ast.parse(expression, mode='eval')
+        except SyntaxError as e:
+            raise ValueError(f"Invalid expression syntax: {e}")
+        
+        return self._eval_node(tree.body)
+    
+    def _eval_node(self, node: ast.expr) -> float | int:
+        """Recursively evaluate an AST node."""
+        # Numeric literals
+        if isinstance(node, ast.Constant):
+            if isinstance(node.value, (int, float)):
+                return node.value
+            raise ValueError(f"Only numeric constants allowed, got {type(node.value).__name__}")
+        
+        # Named constants (pi, e, etc.)
+        if isinstance(node, ast.Name):
+            name = node.id.lower()
+            if name in self.SAFE_CONSTANTS:
+                return self.SAFE_CONSTANTS[name]
+            raise ValueError(f"Unknown constant: {node.id}. Allowed: {list(self.SAFE_CONSTANTS.keys())}")
+        
+        # Binary operations (+, -, *, /, etc.)
+        if isinstance(node, ast.BinOp):
+            op_func = self.SAFE_BINARY_OPS.get(type(node.op))
+            if not op_func:
+                raise ValueError(f"Unsupported operator: {type(node.op).__name__}")
+            left = self._eval_node(node.left)
+            right = self._eval_node(node.right)
+            # Safety check for power operations
+            if isinstance(node.op, ast.Pow):
+                if abs(right) > 1000:
+                    raise ValueError("Exponent too large (max 1000)")
+            return op_func(left, right)
+        
+        # Unary operations (+x, -x)
+        if isinstance(node, ast.UnaryOp):
+            op_func = self.SAFE_UNARY_OPS.get(type(node.op))
+            if not op_func:
+                raise ValueError(f"Unsupported unary operator: {type(node.op).__name__}")
+            return op_func(self._eval_node(node.operand))
+        
+        # Function calls (sqrt, sin, etc.)
+        if isinstance(node, ast.Call):
+            if not isinstance(node.func, ast.Name):
+                raise ValueError("Only simple function calls allowed")
+            
+            func_name = node.func.id.lower()
+            if func_name not in self.SAFE_FUNCTIONS:
+                raise ValueError(
+                    f"Unknown function: {node.func.id}. "
+                    f"Allowed: {list(self.SAFE_FUNCTIONS.keys())}"
+                )
+            
+            # Evaluate arguments
+            args = [self._eval_node(arg) for arg in node.args]
+            
+            # Check for keyword arguments (not supported)
+            if node.keywords:
+                raise ValueError("Keyword arguments not supported in math expressions")
+            
+            return self.SAFE_FUNCTIONS[func_name](*args)
+        
+        # Comparisons (for expressions like 2 < 3)
+        if isinstance(node, ast.Compare):
+            left = self._eval_node(node.left)
+            for op, comparator in zip(node.ops, node.comparators):
+                op_func = self.SAFE_COMPARE_OPS.get(type(op))
+                if not op_func:
+                    raise ValueError(f"Unsupported comparison: {type(op).__name__}")
+                right = self._eval_node(comparator)
+                if not op_func(left, right):
+                    return False
+                left = right
+            return True
+        
+        raise ValueError(f"Unsupported expression type: {type(node).__name__}")
+
+
+# Global safe evaluator instance
+_safe_evaluator = SafeExpressionEvaluator()
 
 
 # ---------------------------------------------------------------------------
@@ -66,7 +330,7 @@ def execute_tool(name: str, arguments: dict[str, Any]) -> str:
 
 @tool(
     name="calculator",
-    description="Evaluate a mathematical expression. Supports basic arithmetic, powers, sqrt, trig, etc.",
+    description="Evaluate a mathematical expression. Supports basic arithmetic, powers, sqrt, trig, etc. Examples: '2 + 3 * 4', 'sqrt(144)', 'sin(pi/2)', 'log(100, 10)'.",
     parameters={
         "type": "object",
         "properties": {
@@ -79,18 +343,17 @@ def execute_tool(name: str, arguments: dict[str, Any]) -> str:
     },
 )
 def calculator(expression: str) -> str:
-    # Provide a safe math environment
-    allowed_names: dict[str, Any] = {
-        k: getattr(math, k) for k in dir(math) if not k.startswith("_")
-    }
-    allowed_names["abs"] = abs
-    allowed_names["round"] = round
-    allowed_names["min"] = min
-    allowed_names["max"] = max
-
-    # Block dangerous builtins
-    result = eval(expression, {"__builtins__": {}}, allowed_names)  # noqa: S307
-    return json.dumps({"expression": expression, "result": result})
+    """
+    Safely evaluate mathematical expressions using AST parsing.
+    No eval() - prevents code injection attacks.
+    """
+    try:
+        result = _safe_evaluator.evaluate(expression)
+        return json.dumps({"expression": expression, "result": result})
+    except ValueError as e:
+        return json.dumps({"error": str(e), "expression": expression})
+    except (ZeroDivisionError, OverflowError, ValueError) as e:
+        return json.dumps({"error": f"Math error: {e}", "expression": expression})
 
 
 @tool(
@@ -113,103 +376,204 @@ def get_current_datetime() -> str:
 
 @tool(
     name="shell_command",
-    description="Run a shell command and return stdout/stderr. Use for file listing, searching, or other system tasks. Be careful with destructive commands.",
+    description=f"Run an allowlisted shell command and return stdout/stderr. Allowed commands: {', '.join(sorted(ALLOWED_COMMANDS))}. For security, commands are validated and run without shell expansion.",
     parameters={
         "type": "object",
         "properties": {
             "command": {
                 "type": "string",
-                "description": "The shell command to execute.",
+                "description": "The shell command to execute (must start with an allowed command).",
             },
             "timeout": {
                 "type": "integer",
-                "description": "Max seconds to wait (default 30).",
+                "description": "Max seconds to wait (default 30, max 60).",
             },
         },
         "required": ["command"],
     },
 )
 def shell_command(command: str, timeout: int = 30) -> str:
-    # Block obviously dangerous patterns
-    blocked = ["rm -rf /", "mkfs", "dd if=", ":(){", "fork bomb"]
-    for b in blocked:
-        if b in command:
-            return json.dumps({"error": f"Blocked dangerous command pattern: {b}"})
+    """
+    Execute a restricted subset of shell commands safely.
+    Uses allowlist approach instead of blocklist - much more secure.
+    """
+    # Validate timeout
+    timeout = max(1, min(60, timeout))  # Enforce 1-60 second range
+    
+    # Parse command into parts
+    try:
+        parts = shlex.split(command)
+    except ValueError as e:
+        return json.dumps({"error": f"Invalid command syntax: {e}"})
+    
+    if not parts:
+        return json.dumps({"error": "Empty command"})
+    
+    # Get the base command name (handle /bin/ls, ./script, etc.)
+    base_cmd = Path(parts[0]).name
+    
+    # Check if command is in allowlist
+    if base_cmd not in ALLOWED_COMMANDS:
+        return json.dumps({
+            "error": f"Command '{base_cmd}' not in allowlist.",
+            "allowed_commands": sorted(ALLOWED_COMMANDS),
+            "hint": "Only safe, read-oriented commands are allowed for security."
+        })
+    
+    # Block shell metacharacters in arguments to prevent injection
+    dangerous_chars = set(';&|`$(){}[]<>!\\\n\r')
+    for i, arg in enumerate(parts[1:], 1):
+        if any(c in arg for c in dangerous_chars):
+            return json.dumps({
+                "error": f"Shell metacharacter detected in argument {i}. "
+                         f"These are blocked for security: {' '.join(sorted(dangerous_chars))}"
+            })
+    
     try:
         proc = subprocess.run(
-            command,
-            shell=True,
+            parts,  # Pass as list, not string - shell=False by default
             capture_output=True,
             text=True,
             timeout=timeout,
+            cwd=str(WORKSPACE_ROOT),  # Always run in workspace directory
         )
-        return json.dumps(
-            {
-                "stdout": proc.stdout[:4000],
-                "stderr": proc.stderr[:2000],
-                "returncode": proc.returncode,
-            }
-        )
+        return json.dumps({
+            "stdout": proc.stdout[:4000],
+            "stderr": proc.stderr[:2000],
+            "returncode": proc.returncode,
+            "command_executed": parts,
+        })
     except subprocess.TimeoutExpired:
         return json.dumps({"error": f"Command timed out after {timeout}s"})
+    except FileNotFoundError:
+        return json.dumps({"error": f"Command not found: {base_cmd}"})
+    except PermissionError:
+        return json.dumps({"error": f"Permission denied for command: {base_cmd}"})
 
 
 @tool(
     name="read_file",
-    description="Read the contents of a file and return it.",
+    description="Read the contents of a file within the workspace. Path traversal outside workspace is blocked for security.",
     parameters={
         "type": "object",
         "properties": {
             "path": {
                 "type": "string",
-                "description": "Path to the file to read.",
+                "description": "Path to the file to read (relative to workspace or absolute within workspace).",
             },
             "max_lines": {
                 "type": "integer",
-                "description": "Maximum number of lines to return (default 200).",
+                "description": "Maximum number of lines to return (default 200, max 1000).",
             },
         },
         "required": ["path"],
     },
 )
 def read_file(path: str, max_lines: int = 200) -> str:
-    with open(path, "r", encoding="utf-8", errors="replace") as f:
-        lines = f.readlines()
+    """
+    Read file contents with path traversal protection.
+    Only files within the workspace directory can be read.
+    """
+    # Validate and clamp max_lines
+    max_lines = max(1, min(1000, max_lines))
+    
+    try:
+        safe_path = validate_path(path, must_exist=True)
+    except ValueError as e:
+        return json.dumps({"error": str(e), "path": path})
+    
+    # Check if it's a file (not a directory)
+    if not safe_path.is_file():
+        return json.dumps({"error": f"Not a file: {path}", "path": path})
+    
+    try:
+        with open(safe_path, "r", encoding="utf-8", errors="replace") as f:
+            lines = f.readlines()
+    except PermissionError:
+        return json.dumps({"error": f"Permission denied: {path}", "path": path})
+    except IsADirectoryError:
+        return json.dumps({"error": f"Is a directory: {path}", "path": path})
+    
     total = len(lines)
     truncated = lines[:max_lines]
     content = "".join(truncated)
-    return json.dumps(
-        {
-            "path": path,
-            "total_lines": total,
-            "returned_lines": len(truncated),
-            "content": content,
-        }
-    )
+    
+    return json.dumps({
+        "path": str(safe_path.relative_to(WORKSPACE_ROOT)),
+        "total_lines": total,
+        "returned_lines": len(truncated),
+        "truncated": total > max_lines,
+        "content": content,
+    })
 
 
 @tool(
     name="write_file",
-    description="Write content to a file. Creates the file if it doesn't exist, overwrites if it does.",
+    description="Write content to a file within the workspace. Creates the file if it doesn't exist, overwrites if it does. Path traversal outside workspace is blocked. NOTE: This is a dangerous tool - user confirmation may be required.",
     parameters={
         "type": "object",
         "properties": {
             "path": {
                 "type": "string",
-                "description": "Path to the file to write.",
+                "description": "Path to the file to write (relative to workspace or absolute within workspace).",
             },
             "content": {
                 "type": "string",
-                "description": "Content to write to the file.",
+                "description": "Content to write to the file (max 1MB).",
             },
         },
         "required": ["path", "content"],
     },
 )
 def write_file(path: str, content: str) -> str:
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(content)
-    return json.dumps({"status": "ok", "path": path, "bytes_written": len(content)})
+    """
+    Write file contents with path traversal protection.
+    Only files within the workspace directory can be written.
+    Limited to allowed file extensions and max file size.
+    """
+    # Validate content size
+    if len(content) > MAX_WRITE_SIZE:
+        return json.dumps({
+            "error": f"Content too large. Max size: {MAX_WRITE_SIZE} bytes ({MAX_WRITE_SIZE // 1024}KB)",
+            "path": path,
+            "content_size": len(content),
+        })
+    
+    try:
+        # For write, the file may not exist yet
+        safe_path = validate_path(path, must_exist=False)
+    except ValueError as e:
+        return json.dumps({"error": str(e), "path": path})
+    
+    # Validate file extension
+    try:
+        validate_file_extension(safe_path, for_write=True)
+    except ValueError as e:
+        return json.dumps({"error": str(e), "path": path})
+    
+    # Create parent directories if needed
+    try:
+        safe_path.parent.mkdir(parents=True, exist_ok=True)
+    except PermissionError:
+        return json.dumps({"error": f"Permission denied creating directory: {safe_path.parent}", "path": path})
+    
+    # Check if file exists (for informational purposes)
+    file_existed = safe_path.exists()
+    
+    try:
+        with open(safe_path, "w", encoding="utf-8") as f:
+            f.write(content)
+    except PermissionError:
+        return json.dumps({"error": f"Permission denied: {path}", "path": path})
+    except IsADirectoryError:
+        return json.dumps({"error": f"Is a directory: {path}", "path": path})
+    
+    return json.dumps({
+        "status": "ok",
+        "path": str(safe_path.relative_to(WORKSPACE_ROOT)),
+        "bytes_written": len(content),
+        "action": "overwritten" if file_existed else "created",
+    })
 
 
 @tool(

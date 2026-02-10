@@ -19,7 +19,7 @@ from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
 
-from tools import execute_tool, get_tool_definitions
+from tools import execute_tool, get_tool_definitions, is_dangerous_tool, DANGEROUS_TOOLS
 
 # ---------------------------------------------------------------------------
 # Setup
@@ -66,7 +66,7 @@ def _chat_completion(messages: list[dict], tools: list[dict]) -> dict:
     resp = httpx.post(
         f"{OLLAMA_BASE_URL}/api/chat",
         json=payload,
-        timeout=300,  # local models can be slow
+        timeout=60,  # Reduced from 300s for security (DoS prevention)
     )
     resp.raise_for_status()
     return resp.json()
@@ -123,6 +123,24 @@ def run_agent(user_input: str, messages: list[dict]) -> str:
                 f"[dim]({json.dumps(tool_args, ensure_ascii=False)[:120]})[/dim]"
             )
 
+            # Security: Require confirmation for dangerous tools
+            if is_dangerous_tool(tool_name):
+                console.print(
+                    f"  [bold yellow]⚠ WARNING:[/bold yellow] [red]{tool_name}[/red] is a potentially dangerous operation."
+                )
+                console.print(f"    [dim]Arguments: {json.dumps(tool_args, indent=2)[:500]}[/dim]")
+                try:
+                    confirm = console.input("  [bold red]Execute? (yes/no): [/bold red]").strip().lower()
+                except (EOFError, KeyboardInterrupt):
+                    confirm = "no"
+                
+                if confirm != "yes":
+                    result = json.dumps({"error": "Operation cancelled by user", "tool": tool_name})
+                    console.print(f"  [yellow]✗ Cancelled[/yellow]")
+                    messages.append({"role": "tool", "content": result})
+                    continue
+                console.print(f"  [green]✓ Confirmed[/green]")
+
             result = execute_tool(tool_name, tool_args)
 
             console.print(f"  [dim]✓ Result:[/dim] [green]{result[:200]}[/green]")
@@ -178,8 +196,9 @@ def main():
             f"[bold]Agent powered by {MODEL} via Ollama[/bold]\n"
             "Tools: calculator, shell_command, read_file, write_file, "
             "web_search, get_current_datetime, roast_agents\n\n"
+            f"[yellow]⚠ Dangerous tools ({', '.join(sorted(DANGEROUS_TOOLS))}) require confirmation[/yellow]\n\n"
             "Type [bold green]quit[/bold green] or [bold green]exit[/bold green] to stop.",
-            title="🤖 Ollama Agent",
+            title="🤖 Ollama Agent (Security Hardened)",
             border_style="blue",
         )
     )
