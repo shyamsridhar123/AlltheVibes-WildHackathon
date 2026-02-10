@@ -1,172 +1,105 @@
-# 🐠 All the Vibes Agent Swarm 🐠
+# AlltheVibes-WildHackathon
 
-```
-                                        ,.
-                                      ,o'
-                                     :o'
-                 _....._            ``::o
-               .'       ``-.         `':oo
-              /   __       `.        ::oo'
-             |   /  \        |      ::ooo
-             |   `._;        |     ::ooo'
-             \     ;  ,.     /    ::ooo;
-              `.   ``'  `. .'   ,::ooo;
-         _      ``--.....::'   ::ooooo;
-       .` `.             `.  ,::ooooo;
-      /     `.             `::ooooooo;
-     :        `.            `::oooooo;
-     ;     `:  `._     _..-- ::ooooo;
-     :      `. `-.`_.-'   /  ::ooo;'
-      `.     :`..__  _.-'   ,::o;``
-        `.  ;    ``-'      ,::;``
-          `-.             ,:;``
-             `-.        .:'
-                `-.   .-'
-        _._      ) .-'
-      .'   ``--.'  /
-     /             /
-    ;  JUST KEEP  ;
-    |  PUSHING!   |
-    ;             ;
-     `.         .'
-       `-.__.-'
+AI Agent powered by **Claude Opus 4.5** on **Azure AI Foundry**, built from scratch with the Azure AI Inference SDK.
 
-        🐠  "Just keep pushing, just keep pushing..."  🐠
-             — Nemo (probably), Agent Swarm Edition
-```
+## What it does
 
-> An automated documentation engine + chaotic agent swarm toolkit — powered by GitHub Copilot skills, prompts, and GitHub Actions.
+A general-purpose chat agent with an agentic tool-use loop. It can:
 
----
+- **Run shell commands** — list files, search, inspect system state
+- **Read & write files** — view or create files on disk
+- **Do math** — evaluate mathematical expressions
+- **Search the web** — query DuckDuckGo for information
+- **Get current time** — UTC datetime
 
-## What is the All the Vibes Agent Swarm?
+The agent autonomously decides when to use tools, chains multiple tool calls, and returns a final answer.
 
-This is a **collaborative, rapid-fire AI hackathon repo** where everyone contributes agents, skills, utilities, and experiments to a shared "agent swarm." There are no rules — just vibes.
+## Setup
 
-The repo includes:
-- **An automated documentation engine** that keeps README and CHANGELOG in sync on every push
-- **A Copilot skill** that teaches Copilot how to analyze diffs and write changelogs
-- **Fun swarm tools** like the Vibe Oracle and ASCII Swarm Mascot
-- Whatever else the swarm decides to build
+### 1. Prerequisites
 
----
+- Python 3.10+
+- An Azure AI Foundry resource with Claude Opus 4.5 deployed ([Azure AI Model Catalog](https://ai.azure.com/explore/models))
 
-## Quick Start
+### 2. Install dependencies
 
 ```bash
-# Clone the repo
-git clone https://github.com/shyamsridhar123/AlltheVibes-WildHackathon.git
-cd AlltheVibes-WildHackathon
-
-# See the swarm mascot
-python swarm_mascot.py
-
-# Consult the Vibe Oracle
-python vibe_oracle.py "what should I build?"
-
-# Make changes, push, repeat every 5 minutes 🐠
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
 ```
 
----
+### 3. Configure environment
 
-## 🔮 What's in the Swarm
-
-| Contribution | Author | Description | Run it |
-|---|---|---|---|
-| 📝 Auto-Changelog Engine | dc995 | Copilot skill + GitHub Action that auto-generates CHANGELOG.md on every push | Automatic on push to `main` |
-| 🔮 Vibe Oracle | ZacharyLuz | Chaotic vibe generator — ask it anything, receive cosmic wisdom | `python vibe_oracle.py "your question"` |
-| 🐝 Swarm Mascot | ZacharyLuz | ASCII art mascot + banner for the swarm | `python swarm_mascot.py` |
-| 🐠 Nemo README | ZacharyLuz | This README with Nemo ASCII art and contribution guide | You're reading it |
-
----
-
-## How the Auto-Documentation Works
-
-### Copilot Skill
-The skill in `.vscode/skills/readme-changelog-generator/SKILL.md` teaches Copilot how to:
-- Analyze git diffs and commit messages
-- Classify changes into categories (Features, Fixes, Refactors, etc.)
-- Generate structured changelog entries
-- Update the README
-
-### Prompts
-| Prompt | What It Does |
-|--------|-------------|
-| `generate-change-readme` | Analyzes recent commits and generates a changelog entry |
-| `summarize-changes` | Finds all changes since the last changelog entry |
-| `generate-full-readme` | Creates a complete README from the current repo state |
-
-### GitHub Action
-On every push to `main`, the workflow:
-1. Reads the commit messages and diff
-2. Categorizes changes using conventional commit prefixes
-3. Generates a changelog entry with date and commit range
-4. Prepends it to `CHANGELOG.md`
-5. Commits and pushes the update
-
----
-
-## Project Structure
-
-```
-AlltheVibes-WildHackathon/
-├── .github/
-│   ├── copilot-instructions.md              # Global Copilot behavior rules
-│   ├── instructions/
-│   │   ├── changelog-format.instructions.md # Changelog formatting rules
-│   │   └── readme-update.instructions.md    # README update rules
-│   ├── prompts/
-│   │   ├── generate-change-readme.prompt.md # Generate changelog from changes
-│   │   ├── generate-full-readme.prompt.md   # Generate a full README
-│   │   └── summarize-changes.prompt.md      # Summarize changes since last entry
-│   └── workflows/
-│       └── auto-readme.yml                  # GitHub Action for auto-changelog
-├── .vscode/
-│   └── skills/
-│       └── readme-changelog-generator/
-│           └── SKILL.md                     # Copilot skill definition
-├── CHANGELOG.md                             # Auto-generated changelog
-├── README.md                                # This file (you are here 🐠)
-├── swarm_mascot.py                          # ASCII swarm mascot
-└── vibe_oracle.py                           # Chaotic vibe generator
-```
-
----
-
-## How to Contribute
-
-### 1. Get the repo
 ```bash
-git clone https://github.com/shyamsridhar123/AlltheVibes-WildHackathon.git
+cp .env.example .env
+# Edit .env with your Azure AI endpoint and API key
 ```
-Or fork it: `gh repo fork shyamsridhar123/AlltheVibes-WildHackathon --clone`
 
-### 2. Build anything
-- ✅ Agents, skills, utilities, experiments, partial ideas, vibes
-- ❌ Nothing is off limits. No required tech stack or language.
+| Variable | Description |
+|----------|-------------|
+| `AZURE_AI_ENDPOINT` | Your Azure AI Foundry model endpoint URL |
+| `AZURE_AI_API_KEY` | API key for authentication |
+| `AZURE_AI_MODEL` | Model name (default: `claude-opus-4-5-20250219`) |
 
-### 3. Push fast
-> **Push something every ~5 minutes.** Speed over polish.
+### 4. Run the agent
 
-### 4. Push or PR
-- **Direct push** to `main` if you have access (no branch protection)
-- **Fork + PR** if you don't — Copilot auto-approves
+```bash
+python agent.py
+```
 
-### 5. Don't overthink it
-No coding standards. No linting rules. No cleanup expectations. Just vibes.
-
----
-
-## Recent Changes
-
-See [CHANGELOG.md](CHANGELOG.md) for a full history of changes.
-
-## License
-
-MIT
-
----
+## Architecture
 
 ```
-   🐠 Just keep pushing. Just keep pushing. 🐠
+agent.py    — Main agent loop + CLI interface
+tools.py    — Tool registry, definitions, and implementations
+.env        — Your Azure credentials (not committed)
 ```
+
+### How the agentic loop works
+
+1. User sends a message
+2. Message history + tool definitions sent to Claude Opus 4.5 via Azure AI Inference API
+3. If Claude returns `tool_calls` → execute each tool, append results to history
+4. Repeat step 2-3 until Claude returns a final text response (max 15 turns)
+5. Display the response and wait for next input
+
+## Adding custom tools
+
+Add a new tool in [tools.py](tools.py) using the `@tool` decorator:
+
+```python
+@tool(
+    name="my_tool",
+    description="What the tool does",
+    parameters={
+        "type": "object",
+        "properties": {
+            "arg1": {"type": "string", "description": "..."},
+        },
+        "required": ["arg1"],
+    },
+)
+def my_tool(arg1: str) -> str:
+    # Your implementation
+    return json.dumps({"result": "..."})
+```
+
+The tool is automatically registered and available to the agent — no other changes needed.
+
+## Web API
+
+The Vibe Oracle is also available as a REST API via FastAPI.
+
+### Start the Server
+```bash
+python api.py
+# Or: uvicorn api:app --reload
+```
+
+### API Endpoints
+- `GET /` — Welcome message and endpoint list
+- `GET /vibe?query=your-question` — Get a single vibe reading
+- `GET /vibes?count=5` — Get multiple vibe readings (1-20)
+- `GET /health` — Health check
+- `GET /docs` — Interactive API documentation (Swagger UI)

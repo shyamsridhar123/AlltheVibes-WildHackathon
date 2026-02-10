@@ -1,0 +1,16 @@
+{
+  // Beth Agent System - Recommended Settings
+  // These settings enable full agent orchestration capabilities
+
+  // Required: Allow Beth to delegate work to specialist agents
+  "chat.customAgentInSubagent.enabled": true,
+
+  // Enable agent mode in Copilot Chat
+  "chat.agent.enabled": true,
+
+  // Enable thinking/reasoning for complex tasks
+  "github.copilot.chat.agent.thinkingTool": true,
+
+  // Consistent locale for agent responses
+  "github.copilot.chat.localeOverride": "en"
+}
