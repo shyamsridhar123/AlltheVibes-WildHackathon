@@ -13,7 +13,7 @@ def get_contributor_stats() -> dict:
     try:
         result = subprocess.run(
             ["git", "shortlog", "-sn", "--all"],
-            capture_output=True, text=True, timeout=10
+            capture_output=True, text=True, timeout=10, encoding="utf-8", errors="replace"
         )
         stats = {}
         for line in result.stdout.strip().split("\n"):
@@ -32,7 +32,7 @@ def get_file_change_frequency(n: int = 50) -> dict:
     try:
         result = subprocess.run(
             ["git", "log", f"-{n}", "--pretty=format:", "--name-only"],
-            capture_output=True, text=True, timeout=10
+            capture_output=True, text=True, timeout=10, encoding="utf-8", errors="replace"
         )
         files = [f.strip() for f in result.stdout.strip().split("\n") if f.strip()]
         return dict(Counter(files).most_common(15))
@@ -45,7 +45,7 @@ def get_commit_timeline(n: int = 30) -> str:
     try:
         result = subprocess.run(
             ["git", "log", f"-{n}", "--pretty=format:%ai | %an | %s"],
-            capture_output=True, text=True, timeout=10
+            capture_output=True, text=True, timeout=10, encoding="utf-8", errors="replace"
         )
         return result.stdout.strip() or "(no commits)"
     except Exception:

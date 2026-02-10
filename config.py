@@ -3,6 +3,7 @@
 import os
 from dotenv import load_dotenv
 from openai import AzureOpenAI
+from azure.identity import DefaultAzureCredential, get_bearer_token_provider
 
 load_dotenv()
 
@@ -13,9 +14,14 @@ API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION", "2024-12-01-preview")
 
 
 def get_client() -> AzureOpenAI:
+    """Create client using Entra ID token auth (falls back to API key if set)."""
+    token_provider = get_bearer_token_provider(
+        DefaultAzureCredential(),
+        "https://cognitiveservices.azure.com/.default",
+    )
     return AzureOpenAI(
         azure_endpoint=ENDPOINT,
-        api_key=API_KEY,
+        azure_ad_token_provider=token_provider,
         api_version=API_VERSION,
     )
 

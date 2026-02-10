@@ -15,7 +15,7 @@ def get_commit_log(n: int = 15) -> str:
     try:
         result = subprocess.run(
             ["git", "log", f"-{n}", "--pretty=format:%h | %an | %ar | %s"],
-            capture_output=True, text=True, timeout=10
+            capture_output=True, text=True, timeout=10, encoding="utf-8", errors="replace"
         )
         return result.stdout.strip() or "(no commits yet)"
     except Exception:
@@ -27,7 +27,7 @@ def get_diff_stats(n: int = 5) -> str:
     try:
         result = subprocess.run(
             ["git", "log", f"-{n}", "--stat", "--pretty=format:--- %h by %an ---"],
-            capture_output=True, text=True, timeout=10
+            capture_output=True, text=True, timeout=10, encoding="utf-8", errors="replace"
         )
         return result.stdout.strip()[:3000] or "(no diffs)"
     except Exception:
