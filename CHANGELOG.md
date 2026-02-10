@@ -1,6 +1,20 @@
 # Changelog
 
 
+## [2026-02-10] — Add Azure OpenAI config for Comedy Arena
+
+### 🆕 New Features
+- **ComedyArena/comedy_arena.py** Add Azure OpenAI client configuration and deployment-based model selection
+
+### 📝 Documentation
+- **ComedyArena/README.md** Update setup and configuration for Azure OpenAI
+
+### ⚙️ Configuration
+- **ComedyArena/.env.example** Replace OpenAI key placeholder with Azure OpenAI settings
+
+---
+
+
 ## [2026-02-10] — Changes `16cd0a7` to `bac7f23`
 
 ### 🆕 New Features

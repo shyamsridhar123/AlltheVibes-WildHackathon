@@ -45,11 +45,11 @@ User Prompt ──► 👨 Dad Joke Agent    ──► Joke B ──┘
    pip install -r requirements.txt
    ```
 
-3. **Add your OpenAI API key**:
+3. **Add your Azure OpenAI settings**:
    ```bash
    cp .env.example .env
    ```
-   Then open `.env` and replace `sk-your-key-here` with your real key.
+   Then open `.env` and fill in your Azure OpenAI values.
 
 4. **Run the arena**:
    ```bash
@@ -60,8 +60,10 @@ User Prompt ──► 👨 Dad Joke Agent    ──► Joke B ──┘
 
 | Variable | Default | Description |
 |---|---|---|
-| `OPENAI_API_KEY` | *(required)* | Your OpenAI API key |
-| `OPENAI_MODEL` | `gpt-4o-mini` | Model to use for all three agents |
+| `AZURE_OPENAI_ENDPOINT` | *(required)* | Azure OpenAI endpoint URL |
+| `AZURE_OPENAI_API_KEY` | *(required)* | Azure OpenAI API key |
+| `AZURE_OPENAI_DEPLOYMENT` | *(required)* | Model deployment name |
+| `AZURE_OPENAI_API_VERSION` | `2024-02-01` | Azure OpenAI API version |
 
 ## Example
 

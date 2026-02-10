@@ -8,7 +8,7 @@ import os
 import sys
 import json
 from dotenv import load_dotenv
-from openai import OpenAI
+from openai import AzureOpenAI
 
 load_dotenv()
 
@@ -102,19 +102,46 @@ Be brutally honest but entertaining. You live for this.
 
 # ── Core Functions ────────────────────────────────────────────────────
 
-def create_client() -> OpenAI:
-    """Create and return an OpenAI client."""
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        print("❌  Missing OPENAI_API_KEY. Copy .env.example to .env and add your key.")
+def get_azure_config() -> tuple[str, str, str, str]:
+    """Load and validate Azure OpenAI configuration."""
+    endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
+    api_key = os.getenv("AZURE_OPENAI_API_KEY")
+    deployment = os.getenv("AZURE_OPENAI_DEPLOYMENT")
+    api_version = os.getenv("AZURE_OPENAI_API_VERSION", "2024-02-01")
+
+    missing = [
+        name
+        for name, value in (
+            ("AZURE_OPENAI_ENDPOINT", endpoint),
+            ("AZURE_OPENAI_API_KEY", api_key),
+            ("AZURE_OPENAI_DEPLOYMENT", deployment),
+        )
+        if not value
+    ]
+
+    if missing:
+        print("❌  Missing Azure OpenAI configuration: " + ", ".join(missing))
+        print("    Copy .env.example to .env and fill in the values.")
         sys.exit(1)
-    return OpenAI(api_key=api_key)
+
+    return endpoint, api_key, deployment, api_version
 
 
-def get_joke(client: OpenAI, system_prompt: str, user_prompt: str) -> str:
+def create_client() -> AzureOpenAI:
+    """Create and return an Azure OpenAI client."""
+    endpoint, api_key, _, api_version = get_azure_config()
+    return AzureOpenAI(
+        api_key=api_key,
+        azure_endpoint=endpoint,
+        api_version=api_version,
+    )
+
+
+def get_joke(client: AzureOpenAI, system_prompt: str, user_prompt: str) -> str:
     """Get a joke from an agent given a user prompt."""
+    _, _, deployment, _ = get_azure_config()
     response = client.chat.completions.create(
-        model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
+        model=deployment,
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
@@ -125,7 +152,7 @@ def get_joke(client: OpenAI, system_prompt: str, user_prompt: str) -> str:
     return response.choices[0].message.content
 
 
-def judge_jokes(client: OpenAI, user_prompt: str, joke_a: str, joke_b: str) -> dict:
+def judge_jokes(client: AzureOpenAI, user_prompt: str, joke_a: str, joke_b: str) -> dict:
     """Have the Judge evaluate both jokes and return structured scores."""
     judging_prompt = f"""\
 The user asked: "{user_prompt}"
@@ -138,8 +165,9 @@ The user asked: "{user_prompt}"
 
 Now judge them. Return ONLY valid JSON."""
 
+    _, _, deployment, _ = get_azure_config()
     response = client.chat.completions.create(
-        model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
+        model=deployment,
         messages=[
             {"role": "system", "content": JUDGE_PROMPT},
             {"role": "user", "content": judging_prompt},
