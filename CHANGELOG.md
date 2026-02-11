@@ -1,6 +1,31 @@
 # Changelog
 
 
+## [2026-02-11] — Changes `abf9ada` to `067e370`
+
+### 📦 Other
+- Deep code review of agentic capabilities with security fixes (#34)
+
+<details><summary>Files changed</summary>
+
+```
+ CHANGELOG.md                 |  19 ++
+ agents/router.py             |   4 +-
+ config.py                    |  31 +--
+ docs/AGENTIC_CODE_REVIEW.md  | 441 +++++++++++++++++++++++++++++++++++++++++++
+ src/agents/BaseAgent.test.ts |  28 ++-
+ src/agents/BaseAgent.ts      |   2 +-
+ src/agents/WorkerAgent.ts    |   3 +-
+ tools.py                     |  43 ++++-
+ 8 files changed, 536 insertions(+), 35 deletions(-)
+```
+</details>
+
+---
+
+
+
+
 ## [2026-02-11] — Deep code review of agentic capabilities with security fixes
 
 ### 🐛 Bug Fixes
