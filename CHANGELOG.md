@@ -1,6 +1,34 @@
 # Changelog
 
 
+## [2026-02-11] — Changes `bb07da2` to `f48125b`
+
+### 🆕 New Features
+- feat: add Star Wars agent personality skill
+
+### 📦 Other
+- Merge PR #31: feat: add Star Wars agent personality skill
+
+<details><summary>Files changed</summary>
+
+```
+ .../instructions/changelog-format.instructions.md  |  54 ++--
+ .github/instructions/readme-update.instructions.md |  48 ++--
+ .github/prompts/enable-star-wars-agents.prompt.md  |  95 +++++++
+ .github/prompts/generate-change-readme.prompt.md   | 132 ++++-----
+ .github/prompts/generate-full-readme.prompt.md     |  78 +++---
+ .github/prompts/summarize-changes.prompt.md        |  62 ++---
+ .vscode/skills/readme-changelog-generator/SKILL.md | 196 +++++++-------
+ .../skills/star-wars-agent-personality/SKILL.md    | 300 +++++++++++++++++++++
+ 8 files changed, 680 insertions(+), 285 deletions(-)
+```
+</details>
+
+---
+
+
+
+
 ## [2026-02-11] — Changes `14bc747` to `4842fec`
 
 ### 🐛 Bug Fixes
