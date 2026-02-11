@@ -74,9 +74,11 @@ def run_agent(name, config):
             capture_output=True,
             text=True,
             timeout=10,
+            encoding="utf-8",
+            errors="replace",
             cwd=os.path.dirname(os.path.abspath(__file__)),
         )
-        if result.stdout.strip():
+        if result.stdout and result.stdout.strip():
             print(result.stdout)
         return True
     except subprocess.TimeoutExpired:
@@ -98,9 +100,11 @@ def git_status_chaos():
                 capture_output=True,
                 text=True,
                 timeout=5,
+                encoding="utf-8",
+                errors="replace",
                 cwd=os.path.dirname(os.path.abspath(__file__)),
             )
-            if result.stdout.strip():
+            if result.stdout and result.stdout.strip():
                 for line in result.stdout.strip().split("\n"):
                     print(f"    {line}")
         except (subprocess.TimeoutExpired, FileNotFoundError):
