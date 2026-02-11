@@ -1,6 +1,24 @@
 # Changelog
 
 
+## [2026-02-11] — Changes `14bc747` to `4842fec`
+
+### 🐛 Bug Fixes
+- fix: Windows encoding crash in swarm_chaos.py (cp1252  UTF-8) (#32)
+
+<details><summary>Files changed</summary>
+
+```
+ swarm_chaos.py | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+```
+</details>
+
+---
+
+
+
+
 ## [2026-02-10] — Changes `a8fb3b1` to `9f58793`
 
 ### 📝 Documentation
