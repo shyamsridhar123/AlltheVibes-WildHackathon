@@ -19,7 +19,7 @@ from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
 
-from tools import execute_tool, get_tool_definitions, is_dangerous_tool, DANGEROUS_TOOLS
+from tools import execute_tool, get_tool_definitions, is_dangerous_tool, DANGEROUS_TOOLS, audit_log
 
 # ---------------------------------------------------------------------------
 # Setup
@@ -129,16 +129,26 @@ def run_agent(user_input: str, messages: list[dict]) -> str:
                     f"  [bold yellow]⚠ WARNING:[/bold yellow] [red]{tool_name}[/red] is a potentially dangerous operation."
                 )
                 console.print(f"    [dim]Arguments: {json.dumps(tool_args, indent=2)[:500]}[/dim]")
+                
+                # Audit: Log confirmation request
+                audit_log("USER_CONFIRM_REQUESTED", tool_name, args=tool_args)
+                
                 try:
                     confirm = console.input("  [bold red]Execute? (yes/no): [/bold red]").strip().lower()
                 except (EOFError, KeyboardInterrupt):
                     confirm = "no"
                 
                 if confirm != "yes":
+                    # Audit: Log user denied execution
+                    audit_log("USER_CONFIRM_DENIED", tool_name, args=tool_args, user_confirmed=False)
+                    
                     result = json.dumps({"error": "Operation cancelled by user", "tool": tool_name})
                     console.print(f"  [yellow]✗ Cancelled[/yellow]")
                     messages.append({"role": "tool", "content": result})
                     continue
+                
+                # Audit: Log user approved execution
+                audit_log("USER_CONFIRM_APPROVED", tool_name, args=tool_args, user_confirmed=True)
                 console.print(f"  [green]✓ Confirmed[/green]")
 
             result = execute_tool(tool_name, tool_args)

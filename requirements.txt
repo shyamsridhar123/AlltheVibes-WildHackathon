@@ -1,3 +1,23 @@
-python-dotenv>=1.0.1
-rich>=13.9.0
-httpx>=0.28.0
+# =============================================================================
+# AllTheVibes — Python Dependencies
+# =============================================================================
+# Pin all versions for reproducibility and supply chain security.
+# Update with: pip-compile --upgrade requirements.in
+# =============================================================================
+
+# Core dependencies (required)
+python-dotenv==1.0.1
+rich==13.9.0
+httpx==0.28.0
+
+# Input validation (security)
+pydantic==2.10.4
+
+# Optional: Azure OpenAI backend
+# Uncomment if using Azure/Foundry deployment:
+# openai==1.58.0
+# azure-identity==1.19.0
+
+# Optional: OpenAI backend
+# Uncomment if using OpenAI directly:
+# openai==1.58.0

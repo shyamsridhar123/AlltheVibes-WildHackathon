@@ -7,17 +7,242 @@ from __future__ import annotations
 
 import ast
 import json
+import logging
 import math
 import operator
+import os
 import shlex
 import subprocess
 import datetime
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Optional
+
+# Pydantic for input validation (graceful fallback if not installed)
+try:
+    from pydantic import BaseModel, Field, ValidationError, field_validator
+    PYDANTIC_AVAILABLE = True
+except ImportError:
+    PYDANTIC_AVAILABLE = False
+    BaseModel = object  # type: ignore
+    ValidationError = Exception  # type: ignore
+
+
+# ---------------------------------------------------------------------------
+# Input Validation Models (Pydantic)
+# ---------------------------------------------------------------------------
+
+if PYDANTIC_AVAILABLE:
+    class CalculatorInput(BaseModel):
+        """Validated input for calculator tool."""
+        expression: str = Field(..., min_length=1, max_length=500)
+        
+        @field_validator('expression')
+        @classmethod
+        def no_dangerous_patterns(cls, v: str) -> str:
+            # Block obvious code injection attempts
+            dangerous = ['import', 'exec', 'eval', '__', 'open', 'os.', 'sys.', 'subprocess']
+            v_lower = v.lower()
+            for pattern in dangerous:
+                if pattern in v_lower:
+                    raise ValueError(f"Dangerous pattern '{pattern}' not allowed in expression")
+            return v
+
+    class ShellCommandInput(BaseModel):
+        """Validated input for shell_command tool."""
+        command: str = Field(..., min_length=1, max_length=2000)
+        timeout: int = Field(default=30, ge=1, le=60)
+
+    class ReadFileInput(BaseModel):
+        """Validated input for read_file tool."""
+        path: str = Field(..., min_length=1, max_length=500)
+        max_lines: int = Field(default=200, ge=1, le=1000)
+        
+        @field_validator('path')
+        @classmethod
+        def no_null_bytes(cls, v: str) -> str:
+            if '\x00' in v:
+                raise ValueError("Null bytes not allowed in path")
+            return v
+
+    class WriteFileInput(BaseModel):
+        """Validated input for write_file tool."""
+        path: str = Field(..., min_length=1, max_length=500)
+        content: str = Field(..., max_length=1_000_000)
+        
+        @field_validator('path')
+        @classmethod
+        def no_null_bytes(cls, v: str) -> str:
+            if '\x00' in v:
+                raise ValueError("Null bytes not allowed in path")
+            return v
+
+    class WebSearchInput(BaseModel):
+        """Validated input for web_search tool."""
+        query: str = Field(..., min_length=1, max_length=500)
+
+    class RoastAgentsInput(BaseModel):
+        """Validated input for roast_agents tool."""
+        target: str = Field(default="", max_length=50)
+
+    # Map tool names to their validation models
+    TOOL_VALIDATORS: dict[str, type[BaseModel]] = {
+        "calculator": CalculatorInput,
+        "shell_command": ShellCommandInput,
+        "read_file": ReadFileInput,
+        "write_file": WriteFileInput,
+        "web_search": WebSearchInput,
+        "roast_agents": RoastAgentsInput,
+    }
+else:
+    TOOL_VALIDATORS = {}
+
+
+def validate_tool_input(tool_name: str, arguments: dict[str, Any]) -> tuple[dict[str, Any], str | None]:
+    """
+    Validate tool input using Pydantic models.
+    Returns (validated_args, error_message).
+    If validation passes, error_message is None.
+    """
+    if not PYDANTIC_AVAILABLE:
+        return arguments, None  # Skip validation if Pydantic not installed
+    
+    validator = TOOL_VALIDATORS.get(tool_name)
+    if validator is None:
+        return arguments, None  # No validator defined for this tool
+    
+    try:
+        validated = validator(**arguments)
+        return validated.model_dump(), None
+    except ValidationError as e:
+        # Format validation errors nicely
+        errors = []
+        for err in e.errors():
+            field = '.'.join(str(x) for x in err['loc'])
+            msg = err['msg']
+            errors.append(f"{field}: {msg}")
+        return arguments, f"Input validation failed: {'; '.join(errors)}"
+
+# ---------------------------------------------------------------------------
+# Audit Logging Configuration
+# ---------------------------------------------------------------------------
+
+# Create security audit logger
+_audit_logger = logging.getLogger("security.audit")
+_audit_logger.setLevel(logging.INFO)
+
+# Add file handler if AUDIT_LOG_FILE is set, otherwise use stderr
+_audit_log_file = os.environ.get("AUDIT_LOG_FILE")
+if _audit_log_file:
+    _handler = logging.FileHandler(_audit_log_file, encoding="utf-8")
+else:
+    _handler = logging.StreamHandler()
+
+_handler.setFormatter(logging.Formatter(
+    '%(asctime)s | %(levelname)s | %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+))
+_audit_logger.addHandler(_handler)
+
+
+def audit_log(event: str, tool_name: str, args: dict | None = None, 
+              result: str | None = None, success: bool = True, 
+              user_confirmed: bool | None = None) -> None:
+    """
+    Log security-relevant events for audit trail.
+    
+    Events: TOOL_CALL, TOOL_RESULT, TOOL_ERROR, TOOL_BLOCKED, USER_CONFIRM
+    """
+    log_entry = {
+        "event": event,
+        "tool": tool_name,
+        "timestamp": datetime.datetime.now(tz=datetime.timezone.utc).isoformat(),
+        "success": success,
+    }
+    
+    if args is not None:
+        # Truncate large arguments for logging
+        sanitized_args = {}
+        for k, v in args.items():
+            if isinstance(v, str) and len(v) > 500:
+                sanitized_args[k] = v[:500] + "...[truncated]"
+            else:
+                sanitized_args[k] = v
+        log_entry["args"] = sanitized_args
+    
+    if result is not None:
+        # Truncate large results
+        if len(result) > 500:
+            log_entry["result"] = result[:500] + "...[truncated]"
+        else:
+            log_entry["result"] = result
+    
+    if user_confirmed is not None:
+        log_entry["user_confirmed"] = user_confirmed
+    
+    log_json = json.dumps(log_entry, ensure_ascii=False)
+    
+    if success:
+        _audit_logger.info(log_json)
+    else:
+        _audit_logger.warning(log_json)
+
 
 # ---------------------------------------------------------------------------
 # Security Configuration
 # ---------------------------------------------------------------------------
+
+# Authentication: Optional API key for service exposure
+# When set, all tool executions require this key to be provided
+AGENT_API_KEY = os.environ.get("AGENT_API_KEY")
+REQUIRE_AUTH = os.environ.get("REQUIRE_AUTH", "false").lower() == "true"
+
+# Session context for authentication state
+_auth_context: dict[str, Any] = {
+    "authenticated": not REQUIRE_AUTH,  # If auth not required, default to True
+    "user": None,
+}
+
+
+def authenticate(api_key: str | None = None) -> bool:
+    """
+    Authenticate a session with API key.
+    Returns True if authentication succeeds.
+    """
+    if not REQUIRE_AUTH:
+        _auth_context["authenticated"] = True
+        return True
+    
+    if not AGENT_API_KEY:
+        # No API key configured but auth required - block all
+        audit_log("AUTH_ERROR", "system", success=False)
+        return False
+    
+    if api_key and api_key == AGENT_API_KEY:
+        _auth_context["authenticated"] = True
+        _auth_context["user"] = "api_key_user"
+        audit_log("AUTH_SUCCESS", "system", success=True)
+        return True
+    
+    audit_log("AUTH_FAILED", "system", success=False)
+    return False
+
+
+def is_authenticated() -> bool:
+    """Check if current session is authenticated."""
+    return _auth_context.get("authenticated", False)
+
+
+def require_auth(func: Callable) -> Callable:
+    """Decorator to require authentication for a function."""
+    def wrapper(*args, **kwargs):
+        if not is_authenticated():
+            return json.dumps({
+                "error": "Authentication required",
+                "hint": "Set AGENT_API_KEY and call authenticate()"
+            })
+        return func(*args, **kwargs)
+    return wrapper
+
 
 # Workspace root for file operations (prevents path traversal)
 WORKSPACE_ROOT = Path(__file__).parent.resolve()
@@ -81,18 +306,49 @@ def get_tool_definitions() -> list[dict]:
 
 def execute_tool(name: str, arguments: dict[str, Any]) -> str:
     """Execute a registered tool by name and return its string result."""
+    # Authentication check
+    if not is_authenticated():
+        error_result = json.dumps({
+            "error": "Authentication required",
+            "tool": name,
+            "hint": "Set AGENT_API_KEY environment variable and authenticate first"
+        })
+        audit_log("TOOL_AUTH_DENIED", name, args=arguments, result=error_result, success=False)
+        return error_result
+    
+    # Audit: Log tool invocation
+    audit_log("TOOL_CALL", name, args=arguments)
+    
+    # Input validation (Pydantic)
+    validated_args, validation_error = validate_tool_input(name, arguments)
+    if validation_error:
+        error_result = json.dumps({"error": validation_error, "tool": name})
+        audit_log("TOOL_BLOCKED", name, args=arguments, result=error_result, success=False)
+        return error_result
+    
     entry = TOOL_REGISTRY.get(name)
     if entry is None:
-        return json.dumps({"error": f"Unknown tool: {name}"})
+        error_result = json.dumps({"error": f"Unknown tool: {name}"})
+        audit_log("TOOL_ERROR", name, args=arguments, result=error_result, success=False)
+        return error_result
+    
     try:
-        result = entry["function"](**arguments)
-        return result if isinstance(result, str) else json.dumps(result)
+        result = entry["function"](**validated_args)
+        result_str = result if isinstance(result, str) else json.dumps(result)
+        
+        # Audit: Log successful execution
+        audit_log("TOOL_RESULT", name, result=result_str, success=True)
+        return result_str
     except Exception as exc:
         # Sanitize error message to avoid leaking sensitive info
         error_msg = str(exc)
         if len(error_msg) > 200:
             error_msg = error_msg[:200] + "..."
-        return json.dumps({"error": error_msg})
+        error_result = json.dumps({"error": error_msg})
+        
+        # Audit: Log execution error
+        audit_log("TOOL_ERROR", name, args=arguments, result=error_result, success=False)
+        return error_result
 
 
 def is_dangerous_tool(name: str) -> bool:
