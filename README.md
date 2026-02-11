@@ -17,6 +17,38 @@ A general-purpose chat agent with an agentic tool-use loop. It can:
 
 The agent autonomously decides when to use tools, chains multiple tool calls, and returns a final answer.
 
+### CLI Toolkit
+
+A suite of specialized agents accessible via `main.py`:
+
+```bash
+python main.py                    # Interactive agent router
+python main.py readme             # Generate AI-powered README
+python main.py whisper            # Commit Whisperer narration
+python main.py visualize          # Chaos Visualizer dashboard
+python main.py review [file]      # AI Code Reviewer
+python main.py sql [query]        # Natural language → SQL
+python main.py router             # Interactive agent router
+python main.py swarm              # Agent-to-agent communication
+```
+
+| Agent | Command | Purpose |
+|-------|---------|---------|
+| **Router** | `python main.py` | AI intent classifier — routes requests to the right agent |
+| **Repo Copilot** | `python main.py readme` | Analyzes repo structure, generates README |
+| **Commit Whisperer** | `python main.py whisper` | Narrates recent git activity with flair |
+| **Chaos Visualizer** | `python main.py visualize` | Git history stats and contributor dashboard |
+| **Code Reviewer** | `python main.py review <file>` | AI-powered code review with feedback |
+| **SQL Generator** | `python main.py sql "<query>"` | Natural language to SQL with explanations |
+| **Swarm** | `python main.py swarm` | Inter-agent communication and orchestration |
+
+**Bonus utilities:**
+
+```bash
+python vibe_oracle.py             # 🔮 Consult the Vibe Oracle
+python swarm_mascot.py            # 🐝 Display the swarm mascot
+```
+
 ### Multi-Agent System (GitHub Copilot)
 
 A seven-agent orchestration system built on GitHub Copilot, following IDEO Design Thinking methodology:
@@ -123,12 +155,34 @@ The agent system works automatically in VS Code with GitHub Copilot. Invoke agen
 ## Architecture
 
 ```text
-agent.py                    — CLI agent loop + Ollama interface
-tools.py                    — Tool registry and implementations
-.env                        — Local config (not committed)
+# Core CLI
+agent.py                    — Interactive chat agent with tool loop
+main.py                     — CLI toolkit entry point
+tools.py                    — Tool registry (security-hardened)
+config.py                   — Unified LLM config (Ollama/Azure/OpenAI)
+
+# CLI Toolkit Agents
+agents/
+├── router.py               — Intent classifier + agent router
+├── swarm.py                — Agent-to-agent communication
+├── repo_copilot.py         — AI README generator
+├── commit_whisperer.py     — Git history narrator
+├── chaos_visualizer.py     — Git stats dashboard
+├── code_reviewer.py        — AI code review
+└── sql_generator.py        — Natural language → SQL
+
+# Fun Utilities
+vibe_oracle.py              — 🔮 Chaotic vibe generator
+swarm_mascot.py             — 🐝 ASCII art swarm mascot
+
+# Joke Agents (standalone)
+DadJokes/                   — Dad joke agent
+KnockKnock/                 — Knock-knock joke agent
+
+# GitHub Copilot Agents
 .github/
 ├── agents/                 — Agent definitions (7 specialists)
-│   ├── beth.agent.md
+│   ├── beth.agent.md       — Orchestrator
 │   ├── developer.agent.md
 │   ├── product-manager.agent.md
 │   ├── ux-designer.agent.md
@@ -153,6 +207,46 @@ tools.py                    — Tool registry and implementations
 4. Repeat step 2-3 until the model returns a final text response (max 15 turns)
 5. Display the response and wait for next input
 
+### Agent-to-Agent Communication (Swarm)
+
+The swarm system enables agents to communicate, delegate tasks, and coordinate:
+
+```python
+from agents.swarm import get_swarm, Message
+
+swarm = get_swarm()
+
+# Send a message to a specific agent
+response = swarm.send("sql_generator", Message(
+    from_agent="orchestrator",
+    content="Generate SQL for: show top 5 customers by spend",
+    context={"schema": "..."}
+))
+
+# Let the orchestrator route to the best agent
+response = swarm.send("orchestrator", Message(
+    from_agent="user",
+    content="Review this code for security issues"
+))
+
+# Broadcast to all agents that can handle a task type
+responses = swarm.broadcast(Message(
+    from_agent="user",
+    content="Analyze the project",
+    task_type="analysis"
+))
+```
+
+**Interactive mode:** `python main.py swarm`
+
+| Command | Description |
+|---------|-------------|
+| `list` | Show all registered agents |
+| `send <agent> <msg>` | Send message to specific agent |
+| `broadcast <msg>` | Send to all capable agents |
+| `ask <msg>` | Let orchestrator route it |
+| `history` | Show message history |
+
 ## Adding custom tools
 
 Add a new tool in [tools.py](tools.py) using the `@tool` decorator:
@@ -175,3 +269,40 @@ def my_tool(arg1: str) -> str:
 ```
 
 The tool is automatically registered and available to the agent — no other changes needed.
+
+## Security
+
+This project is **security-hardened** with multiple layers of protection:
+
+| Protection | Implementation |
+|------------|----------------|
+| **No eval()** | Math expressions use AST-based safe evaluator |
+| **Command allowlist** | Only 24 safe shell commands allowed (no `rm`, `curl`, etc.) |
+| **Path traversal prevention** | All file ops restricted to workspace directory |
+| **User confirmation** | Dangerous tools (`shell_command`, `write_file`) require explicit approval |
+| **Input validation** | Pydantic models validate all tool inputs |
+| **Audit logging** | All tool executions logged with timestamps |
+| **Optional auth** | API key authentication available for service exposure |
+
+Set `AUDIT_LOG_FILE=/path/to/audit.log` to persist security logs.
+
+## Recent Changes
+
+See [CHANGELOG.md](CHANGELOG.md) for detailed release notes.
+
+**Latest (2026-02-10):**
+- Fixed 4 CRITICAL security vulnerabilities
+- Added security-hardened tool execution
+- Local-first Ollama architecture (Azure/OpenAI optional)
+- Pydantic input validation on all tools
+- Audit logging for tool executions
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Run tests (when available)
+5. Submit a pull request
+
+See [Backlog.md](Backlog.md) for current priorities and decisions.

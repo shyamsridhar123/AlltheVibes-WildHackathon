@@ -23,6 +23,8 @@ Last updated: 2026-02-10
 | **Audit logging** | Added structured JSON audit logging in `tools.py`. Logs all tool calls, results, errors, and user confirmations. | 2026-02-10 |
 | **Input validation (Pydantic)** | Added Pydantic models for all tool inputs. Blocks malicious patterns before execution. | 2026-02-10 |
 | **Authentication layer** | Added optional API key auth via `REQUIRE_AUTH` + `AGENT_API_KEY`. Defaults to off for CLI usage. | 2026-02-10 |
+| **Agent-to-agent communication** | Created `agents/swarm.py` with message protocol, agent registry, task delegation, and orchestration. Added `python main.py swarm` CLI. | 2026-02-10 |
+| **README documentation update** | Documented all CLI toolkit agents, swarm system, security features, and recent changes. | 2026-02-10 |
 
 ---
 
@@ -37,7 +39,6 @@ Last updated: 2026-02-10
 ### Medium Priority (P3)
 
 - [ ] **Add rate limiting** — No rate limiting on any agents
-- [ ] **Add agent-to-agent communication** — Currently siloed
 
 ### Low Priority (P4)
 
@@ -77,6 +78,7 @@ All CRITICAL and HIGH vulnerabilities addressed. System is now local-first with 
 - Audit logging — All tool executions logged
 - Input validation — Pydantic models for all tools
 - Optional authentication — API key auth for service exposure
+- **Agent-to-agent communication** — Swarm system with message protocol
 
 **Blockers:** None. Ready for review and merge.
 

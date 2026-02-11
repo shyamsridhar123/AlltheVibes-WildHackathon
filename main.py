@@ -12,6 +12,7 @@ Usage:
     python main.py review [file]      # AI Code Reviewer
     python main.py sql [query]        # Natural language → SQL
     python main.py router             # Interactive agent router
+    python main.py swarm              # Agent-to-agent communication
 """
 
 import sys
@@ -35,6 +36,7 @@ def print_banner():
   [red]review[/]      → 🔍 AI Code Reviewer [dim](+ optional file path)[/dim]
   [green]sql[/]         → 🗄️ Natural language → SQL
   [blue]router[/]      → 🔀 Interactive agent router
+  [cyan]swarm[/]       → 🐝 Agent-to-agent communication
 
   [dim]Or just run with no args for the interactive router![/dim]
 """
@@ -77,6 +79,10 @@ def main():
     elif command == "router":
         from agents.router import run as run_router
         run_router()
+
+    elif command == "swarm":
+        from agents.swarm import run as run_swarm
+        run_swarm()
 
     elif command in ("help", "--help", "-h"):
         print_banner()
