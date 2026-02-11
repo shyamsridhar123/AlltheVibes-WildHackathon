@@ -1,6 +1,24 @@
 # Changelog
 
 
+## [2026-02-11] — Changes `14bc747` to `f3adcb8`
+
+### 🐛 Bug Fixes
+- fix: add encoding='utf-8' to subprocess calls in swarm_chaos.py
+
+<details><summary>Files changed</summary>
+
+```
+ swarm_chaos.py | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+```
+</details>
+
+---
+
+
+
+
 ## [2026-02-10] — Changes `a8fb3b1` to `9f58793`
 
 ### 📝 Documentation
