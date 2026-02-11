@@ -1,4 +1,4 @@
-# AlltheVibes-WildHackathon
+﻿# AlltheVibes-WildHackathon
 
 AI Agent running **locally** via **Ollama** — no API keys, no cloud, fully private — backed by a **multi-agent orchestration system** for GitHub Copilot.
 
@@ -90,14 +90,14 @@ AI Agent running **locally** via **Ollama** — no API keys, no cloud, fully pri
 
 - Python 3.10+ and `pip`
 - **Ollama** running locally with a tool-calling model (e.g., `qwen2.5:7b`) for the offline CLI agent
-- **Azure OpenAI** (for `agents/*` utilities): set `ENDPOINT_URL`, `AZURE_OPENAI_API_KEY`, and `DEPLOYMENT_NAME`; install `azure-identity` and `openai` if not already available
+- **Azure OpenAI** (for `agents/*` utilities): set `ENDPOINT_URL` and `DEPLOYMENT_NAME`; authentication uses `DefaultAzureCredential` (sign in with `az login` or provide a service principal); install `azure-identity` and `openai` if not already available
 
 ## Quick Start (under 5 minutes)
 
 1. Create env + install deps: `python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt` (add `pip install azure-identity openai` for Azure agents)
 2. Start Ollama and pull a model: `ollama serve` (macOS auto-starts) then `ollama pull qwen2.5:7b`
 3. Run offline CLI agent: `python agent.py`
-4. For Azure utilities, set `ENDPOINT_URL`, `AZURE_OPENAI_API_KEY`, and `DEPLOYMENT_NAME` (or rely on Entra ID), then run `python main.py router` (or `readme`, `whisper`, `visualize`, `review <file>`, `sql "<query>"`)
+4. For Azure utilities, set `ENDPOINT_URL` and `DEPLOYMENT_NAME` (authentication via `DefaultAzureCredential`  run `az login` or set up a service principal), then run `python main.py router` (or `readme`, `whisper`, `visualize`, `review <file>`, `sql "<query>"`)
 5. Other demos: `python sharkbait/agent_sharkbait.py --patrol`, `python swarm_chaos.py`, `python vibe_oracle.py "question"`, `python ComedyArena/comedy_arena.py`, `python emoji-translator/src/emoji_translator.py "text"`
 
 ## Running the agents and tools
