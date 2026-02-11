@@ -1,290 +1,171 @@
-﻿# AlltheVibes-WildHackathon
+# AlltheVibes-WildHackathon
 
-AI Agent running **locally** via **Ollama** — no API keys, no cloud, fully private — backed by a **multi-agent orchestration system** for GitHub Copilot.
+A hackathon toolkit with three layers of AI agents:
 
-```text
-                          ╔══════════════════════════════════════════════════════╗
-                          ║     🐝  A L L   T H E   V I B E S  🐝               ║
-                          ║          A G E N T    S W A R M                      ║
-                          ╚══════════════════════════════════════════════════════╝
+1. **Local CLI agent** (`agent.py`)  runs on [Ollama](https://ollama.com), fully offline, with tool calling
+2. **Azure OpenAI agents** (`main.py` + `agents/`)  cloud-powered utilities for repo insights, code review, commit narration, and SQL generation
+3. **GitHub Copilot agent definitions** (`.github/agents/`)  eight specialist agents for use inside VS Code with GitHub Copilot
 
-       ┌─────────────────────────────────────────────────────────────────────────────────┐
-       │                        🌐  G I T H U B   C O P I L O T                        │
-       │                         M U L T I - A G E N T   S Y S T E M                   │
-       │                                                                                 │
-       │                              ┌─────────────┐                                    │
-       │                              │  🤠  BETH   │                                    │
-       │                              │ Orchestrator │                                    │
-       │                              └──────┬──────┘                                    │
-       │                   ┌────────┬────────┼────────┬─────────┐                        │
-       │                   ▼        ▼        ▼        ▼         ▼                        │
-       │             ┌──────────┐┌────────┐┌────────┐┌────────┐┌──────────┐              │
-       │             │ 📋  PM   ││ 🔬 Re- ││ 🎨 UX  ││ 💻 Dev ││ 🧪 Test │              │
-       │             │Strategist││searcher││Designer││Builder ││Enforcer │              │
-       │             └──────────┘└────────┘└────────┘└────────┘└──────────┘              │
-       │                                      │                                          │
-       │                        ┌──────────────┼──────────────┐                           │
-       │                        │              │              │                           │
-       │                  ┌──────────┐   ┌──────────┐   ┌──────────┐                      │
-       │                  │ 🛡️ Secur-│   │ 🧰 Mac-  │   │ 🦈 Shark │                      │
-       │                  │  ity Rev.│   │  Gyver   │   │  bait    │                      │
-       │                  └──────────┘   └──────────┘   └──────────┘                      │
-       └─────────────────────────────────────────────────────────────────────────────────┘
+Plus a collection of standalone comedy and vibe bots.
 
-       ┌─────────────────────────────────────────────────────────────────────────────────┐
-       │                    🖥️   L O C A L   C L I   A G E N T S                        │
-       │                          ( O l l a m a  P o w e r e d )                         │
-       │                                                                                 │
-       │    ┌──────────────┐      ┌───────────────────────────────────────────────┐       │
-       │    │  🔀 ROUTER   │─────▶│  Agent Selection Based on User Intent        │       │
-       │    │ Intent Class.│      └───────────────────────────────────────────────┘       │
-       │    └──────┬───────┘                                                             │
-       │           │  routes to:                                                         │
-       │     ┌─────┼────────┬────────────┬─────────────┬──────────────┐                  │
-       │     ▼     ▼        ▼            ▼             ▼              ▼                  │
-       │  ┌──────┐┌──────┐┌───────────┐┌───────────┐┌────────────┐┌──────────┐          │
-       │  │🤖    ││🔮    ││📊         ││🔍         ││🗄️          ││🔮        │          │
-       │  │ Repo ││Commit││  Chaos    ││   Code    ││    SQL     ││  Vibe   │          │
-       │  │Copil-││Whisp-││  Visual-  ││ Reviewer  ││ Generator  ││ Oracle  │          │
-       │  │ ot   ││ erer ││  izer     ││           ││            ││         │          │
-       │  └──────┘└──────┘└───────────┘└───────────┘└────────────┘└──────────┘          │
-       │                                                                                 │
-       │  ┌──────────────────────────────────────────────────────────────────────┐        │
-       │  │  🛠️  TOOLS: calculator │ shell │ read/write │ web_search │ roast   │        │
-       │  └──────────────────────────────────────────────────────────────────────┘        │
-       └─────────────────────────────────────────────────────────────────────────────────┘
+## Quick Start
 
-       ┌─────────────────────────────────────────────────────────────────────────────────┐
-       │                 😂  C O M E D Y   A G E N T S  ( O p e n A I )                 │
-       │                                                                                 │
-       │         ┌──────────────────┐              ┌──────────────────┐                   │
-       │         │  👨 DAD JOKES    │              │ 🚪 KNOCK KNOCK  │                   │
-       │         │  "Hi Hungry,    │              │  "Who's there?"  │                   │
-       │         │   I'm Dad!"    │              │  "Bug."          │                   │
-       │         └──────────────────┘              │  "Bug who?"     │                   │
-       │                                           │  "Bug in prod!" │                   │
-       │                                           └──────────────────┘                   │
-       └─────────────────────────────────────────────────────────────────────────────────┘
-
-           \   /        \   /        \   /        \   /        \   /
-       _.--'(  )'--._.--(  )'--._.--'(  )'--._.--(  )'--._.--'(  )'--._
-      /  .-. \/ .-.  /.-. \/ .-.\/.-. \/ .-.\/.-. \/ .-.\/.-. \/ .-.  \
-     | ( O ) () ( O )( O ) () ( O( O ) () ( O( O ) () ( O( O ) () ( O )|
-      \  '-' /\ '-'  \'-' /\ '-'/\'-' /\ '-'/\'-' /\ '-'/\'-' /\ '-'  /
-       '-.__(  )__.--'(  )'--.(  )__.-'(  )'--.(  )__.--'(  )'--.(  )_'
-           /   \      /   \    /   \    /   \    /   \    /   \
-         | PUSH! |  | VIBE! |  | CODE! | | SWARM |  | SHIP! |  | HACK! |
-          '-----'    '-----'    '-----'   '-----'    '-----'    '-----'
-
-                 🐝 THE SWARM IS ALIVE. PUSH YOUR CODE. TRUST THE VIBES. 🐝
-```
-
-## Overview
-
-- Local **Ollama CLI agent** (`agent.py`) with tool calling (shell, file I/O, web search, roasts) and rich console UI.
-- Azure-powered **agent router** (`main.py`) that fans out to Repo Copilot, Commit Whisperer, Chaos Visualizer, Code Reviewer, and SQL Generator modules in `agents/`.
-- Standalone **vibe/comedy utilities**: `vibe_oracle.py`, `swarm_chaos.py`, `sharkbait/` (ocean-themed reviewer), `ComedyArena/`, `DadJokes/`, `KnockKnock/`, and `emoji-translator/`.
-- **Research + prototypes**: `docs/research/` (3IQ and swarm architecture), `docs/plans/`, and a TypeScript agent framework prototype in `src/` (BaseAgent, message bus, Redis/OpenAI stubs).
-
-## Prerequisites
-
-- Python 3.10+ and `pip`
-- **Ollama** running locally with a tool-calling model (e.g., `qwen2.5:7b`) for the offline CLI agent
-- **Azure OpenAI** (for `agents/*` utilities): set `ENDPOINT_URL` and `DEPLOYMENT_NAME`; authentication uses `DefaultAzureCredential` (sign in with `az login` or provide a service principal); install `azure-identity` and `openai` if not already available
-
-## Quick Start (under 5 minutes)
-
-1. Create env + install deps: `python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt` (add `pip install azure-identity openai` for Azure agents)
-2. Start Ollama and pull a model: `ollama serve` (macOS auto-starts) then `ollama pull qwen2.5:7b`
-3. Run offline CLI agent: `python agent.py`
-4. For Azure utilities, set `ENDPOINT_URL` and `DEPLOYMENT_NAME` (authentication via `DefaultAzureCredential`  run `az login` or set up a service principal), then run `python main.py router` (or `readme`, `whisper`, `visualize`, `review <file>`, `sql "<query>"`)
-5. Other demos: `python sharkbait/agent_sharkbait.py --patrol`, `python swarm_chaos.py`, `python vibe_oracle.py "question"`, `python ComedyArena/comedy_arena.py`, `python emoji-translator/src/emoji_translator.py "text"`
-
-## Running the agents and tools
-
-- **Offline (Ollama)**: `python agent.py` for the local CLI with shell/files/web/roast tools.
-- **Azure utilities** (Repo Copilot, Commit Whisperer, Chaos Visualizer, Code Reviewer, SQL Generator): `python main.py router` (or `readme`, `whisper`, `visualize`, `review <file>`, `sql "<query>"`) after setting Azure env vars.
-- **Vibe/chaos utilities**: `python swarm_chaos.py`, `python vibe_oracle.py "question"`, `python swarm_mascot.py --static`.
-- **Code review shark**: `python sharkbait/agent_sharkbait.py --patrol` (or `--roast <file>`).
-- **Comedy showdown**: `python ComedyArena/comedy_arena.py` (uses `.env.example` for Azure OpenAI); `DadJokes/` and `KnockKnock/` run similarly.
-- **Emoji translator**: `python emoji-translator/src/emoji_translator.py "text"` (optionally set `OPENAI_API_KEY` for enhanced mode).
-
-## What it does
-
-### CLI Agent (Ollama)
-
-A general-purpose chat agent with an agentic tool-use loop. It can:
-
-- **Run shell commands** — list files, search, inspect system state
-- **Read & write files** — view or create files on disk
-- **Do math** — evaluate mathematical expressions
-- **Search the web** — query DuckDuckGo for information
-- **Get current time** — UTC datetime
-- **Roast the agents** — deliver brutal but hilarious roasts of the AI agent team
-
-The agent autonomously decides when to use tools, chains multiple tool calls, and returns a final answer.
-
-### Multi-Agent System (GitHub Copilot)
-
-An eight-agent orchestration system built on GitHub Copilot, following IDEO Design Thinking methodology:
-
-| Agent | Role | Purpose |
-|-------|------|---------|
-| **Beth** | Orchestrator | Routes work, spawns subagents, manages workflows |
-| **Product Manager** | Strategist | PRDs, user stories, RICE prioritization, success metrics |
-| **Researcher** | Intelligence | User/market research, competitive analysis, synthesis |
-| **UX Designer** | Architect | Component specs, design tokens, accessibility, wireframes |
-| **Developer** | Builder | React/TypeScript/Next.js implementation, shadcn/ui |
-| **Security Reviewer** | Bodyguard | OWASP audits, threat modeling, compliance checks |
-| **Tester** | Enforcer | QA, accessibility audits, performance testing |
-| **MacGyver** | Improviser | Solves problems with whatever's available, builds MCP tools on the fly |
-
-Agents are defined in `.github/agents/` and leverage domain-specific skills from `.github/skills/`.
-
-#### Skills
-
-| Skill | Triggers |
-|-------|----------|
-| PRD Generation | "create a prd", "product requirements" |
-| Framer Components | "framer component", "property controls" |
-| Vercel React Best Practices | React/Next.js performance work |
-| Web Design Guidelines | "review my UI", "check accessibility" |
-| shadcn/ui Components | "shadcn", "ui component" |
-| Security Analysis | "security review", "OWASP", "threat model" |
-
-#### Workflow
-
-```
-@Beth → analyzes request → routes to specialist agents
-  ├── @product-manager → defines WHAT to build
-  ├── @researcher → validates user needs
-  ├── @ux-designer → designs HOW it works
-  ├── @developer → implements in React/TypeScript
-  ├── @security-reviewer → audits for vulnerabilities
-  ├── @tester → verifies quality
-  └── @macgyver → improvises solutions, builds MCP tools on the fly
-```
-
-## Setup
-
-### CLI Agent
-
-#### 1. Install Ollama
+### 1. Local CLI agent (Ollama  no API keys needed)
 
 ```bash
-# Linux / WSL
-curl -fsSL https://ollama.com/install.sh | sh
-
-# macOS — or download from https://ollama.com
-brew install ollama
+python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -r requirements.txt                      # python-dotenv, rich, httpx
+ollama pull qwen2.5:7b                               # or llama3.1:8b, mistral:7b
+python agent.py                                      # start the chat agent
 ```
 
-#### 2. Pull a model
+The CLI agent has these tools built in (defined in `tools.py`):
+
+| Tool | What it does |
+|------|-------------|
+| `calculator` | Evaluate math expressions (uses Python `math`) |
+| `get_current_datetime` | Current UTC date/time |
+| `shell_command` | Run shell commands (with safety blocklist) |
+| `read_file` | Read files within the project directory |
+| `write_file` | Write files within the project directory |
+| `web_search` | Search DuckDuckGo Lite (no API key) |
+| `roast_agents` | Deliver brutal roasts of the Copilot agent team |
+
+Configure via `.env` (see `.env.example`):
+
+| Variable | Default |
+|----------|---------|
+| `OLLAMA_BASE_URL` | `http://localhost:11434` |
+| `OLLAMA_MODEL` | `qwen2.5:7b` |
+
+### 2. Azure OpenAI agents (requires Azure credentials)
+
+These require `azure-identity`, `openai`, and Azure OpenAI credentials. They are **not** included in `requirements.txt`  install separately:
 
 ```bash
-# Recommended: good quality + tool-calling support
-ollama pull qwen2.5:7b
-
-# Other options:
-# ollama pull llama3.1:8b
-# ollama pull mistral:7b
-# ollama pull qwen2.5:14b   (needs ~10GB RAM)
+pip install azure-identity openai
 ```
 
-#### 3. Install Python dependencies
+Set environment variables or `.env`:
+
+| Variable | Required | Notes |
+|----------|----------|-------|
+| `ENDPOINT_URL` | Yes | Your Azure OpenAI endpoint |
+| `DEPLOYMENT_NAME` | No | Defaults to `gpt-4o` |
+| `AZURE_OPENAI_API_KEY` | No | If unset, uses `DefaultAzureCredential` (run `az login`) |
+| `AZURE_OPENAI_API_VERSION` | No | Defaults to `2024-12-01-preview` |
+
+Run commands via `main.py`:
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+python main.py                     # interactive router (default)
+python main.py router              # same  intent-based agent routing
+python main.py readme              # generate AI-powered README from repo context
+python main.py whisper             # narrate recent git commit activity
+python main.py visualize           # ASCII dashboard of contributor & file stats
+python main.py review path/to/file # AI code review of a specific file
+python main.py sql "describe foo"  # natural language  SQL
 ```
 
-#### 4. Configure (optional)
+Each command maps to a Python module in `agents/`:
 
-```bash
-cp .env.example .env
-# Edit .env to change model or Ollama URL
-```
+| Module | What it does |
+|--------|-------------|
+| `router.py` | Classifies user intent via LLM, routes to the right agent |
+| `repo_copilot.py` | Walks the repo tree and generates a README summary |
+| `commit_whisperer.py` | Narrates recent git history in dramatic style |
+| `chaos_visualizer.py` | Renders contributor stats and file-change frequency |
+| `code_reviewer.py` | AI-powered file-level code review |
+| `sql_generator.py` | Turns natural language into SQL queries |
 
-| Variable | Description | Default |
-| -------- | ----------- | ------- |
-| `OLLAMA_BASE_URL` | Ollama server URL | `http://localhost:11434` |
-| `OLLAMA_MODEL` | Model name | `qwen2.5:7b` |
+### 3. GitHub Copilot agents (VS Code only)
 
-#### 5. Run the agent
+The `.github/agents/` directory contains eight agent definitions for use inside VS Code with GitHub Copilot. These are **not Python code**  they are markdown files with YAML frontmatter that configure Copilot's behavior:
 
-```bash
-# Make sure Ollama is running (it auto-starts on macOS, or: ollama serve)
-python agent.py
-```
+| Agent | File | Role |
+|-------|------|------|
+| Beth | `beth.agent.md` | Orchestrator  routes work to specialists |
+| Product Manager | `product-manager.agent.md` | PRDs, user stories, prioritization |
+| Researcher | `researcher.agent.md` | User/market research, competitive analysis |
+| UX Designer | `ux-designer.agent.md` | Component specs, design tokens, accessibility |
+| Developer | `developer.agent.md` | React/TypeScript/Next.js implementation |
+| Security Reviewer | `security-reviewer.agent.md` | OWASP audits, threat modeling |
+| Tester | `tester.agent.md` | QA, accessibility, performance testing |
+| MacGyver | `macgyver.agent.md` | Improviser  solves problems with whatever is available |
 
-### Multi-Agent System
+Invoke them in VS Code: `@Beth`, `@developer`, `@product-manager`, etc.
 
-The agent system works automatically in VS Code with GitHub Copilot. Invoke agents with:
+Skills (domain knowledge) are in `.github/skills/`: PRD generation, Framer components, Vercel/React best practices, web design guidelines, shadcn/ui, and security analysis.
 
-```
-@Beth Plan a feature for [description]
-@product-manager Create a PRD for [feature]
-@developer Implement [component/feature]
-@tester Write tests for [component]
-@macgyver Solve [problem description]
-```
+## Comedy & Vibe Bots
 
-## Architecture
+Standalone scripts, each with their own dependencies:
 
-```text
-agent.py                    — CLI agent loop + Ollama interface
-tools.py                    — Tool registry and implementations
-.env                        — Local config (not committed)
-.github/
-├── agents/                 — Agent definitions (8 specialists + MacGyver)
-│   ├── beth.agent.md
-│   ├── macgyver.agent.md       ★ Resourceful improviser & orchestrator
-│   ├── developer.agent.md
-│   ├── product-manager.agent.md
-│   ├── ux-designer.agent.md
-│   ├── researcher.agent.md
-│   ├── security-reviewer.agent.md
-│   └── tester.agent.md
-├── prompts/
-│   └── macgyver-mode.prompt.md — Quick-fire MacGyver improvisation mode
-├── skills/                 — Domain knowledge modules
-│   ├── prd/
-│   ├── shadcn-ui/
-│   ├── framer-components/
-│   ├── vercel-react-best-practices/
-│   ├── web-design-guidelines/
-│   └── security-analysis/
-└── copilot-instructions.md — Global Copilot configuration
-.claude/
-└── skills/
-    └── macgyver/SKILL.md   — Reusable MacGyver methodology skill
-```
+| Script | What it does | API needed? |
+|--------|-------------|-------------|
+| `vibe_oracle.py` | Random chaotic vibe prophecies | No |
+| `swarm_mascot.py` | ASCII art bee mascot + Finding Nemo gallery | No |
+| `swarm_chaos.py` | Runs vibe oracle + mascot + git chaos | No |
+| `sharkbait/agent_sharkbait.py` | Ocean-themed code review with the Sharkbait Scale | No |
+| `ComedyArena/comedy_arena.py` | Two joke agents judged by an LLM judge | Azure OpenAI |
+| `DadJokes/dad_joke_agent.py` | Every response as a dad joke | OpenAI API |
+| `KnockKnock/knock_knock_agent.py` | Every response as a knock-knock joke | OpenAI API |
+| `emoji-translator/src/emoji_translator.py` | Text to emoji translation | Optional (OpenAI) |
 
 ## Project Structure
 
-- `main.py` — router CLI to Repo Copilot, Commit Whisperer, Chaos Visualizer, Code Reviewer, SQL Generator
-- `agent.py` — local Ollama loop with calculator/shell/read/write/web/roast tools
-- `agents/` — Azure-powered modules for routing, README generation, commit narration, chaos viz, reviews, and SQL (uses `config.py` + Azure OpenAI)
-- `ComedyArena/`, `DadJokes/`, `KnockKnock/` — standalone joke agents with their own README and `.env.example`
-- `emoji-translator/` — emoji translation agent with quick start + docs
-- `sharkbait/` — ocean-themed code review agent with patrol/roast modes
-- `vibe_oracle.py`, `swarm_chaos.py`, `swarm_mascot.py` — vibe/chaos generators for the swarm
-- `docs/research/`, `docs/plans/` — 3IQ framework research and MacGyver design notes
-- `src/` — TypeScript agent framework prototype (BaseAgent, WorkerAgent, message bus, Redis/OpenAI stubs; no package/tsconfig yet)
-- `Backlog.md`, `AGENTS.md`, `REPO_STRUCTURE.md` — workflow/orientation docs
+```
+agent.py                 - Ollama CLI agent loop (tool-calling chat)
+tools.py                 - Tool registry: calculator, shell, files, web search, roast
+config.py                - Azure OpenAI client setup (DefaultAzureCredential or API key)
+main.py                  - CLI router to Azure-powered agents
+requirements.txt         - Python deps for the Ollama agent (dotenv, rich, httpx)
 
-### How the CLI agentic loop works
+agents/                  - Azure OpenAI agent modules
+  router.py              - Intent classifier and agent routing
+  repo_copilot.py        - AI README generator from repo context
+  commit_whisperer.py    - Git history narrator
+  chaos_visualizer.py    - Contributor/file stats dashboard
+  code_reviewer.py       - AI code review
+  sql_generator.py       - Natural language to SQL
 
-1. User sends a message
-2. Message history + tool definitions sent to the local model via Ollama's API
-3. If the model returns `tool_calls` → execute each tool, append results to history
-4. Repeat step 2-3 until the model returns a final text response (max 15 turns)
-5. Display the response and wait for next input
+.github/
+  agents/                - GitHub Copilot agent definitions (8 agents)
+  skills/                - Domain knowledge for Copilot agents
+  instructions/          - Repo-level instructions for Copilot
+  prompts/               - Quick-fire prompt templates
+  copilot-instructions.md - Global Copilot configuration
+
+ComedyArena/             - LLM-as-judge joke showdown (Azure OpenAI)
+DadJokes/                - Dad joke chatbot (OpenAI API)
+KnockKnock/              - Knock-knock joke chatbot (OpenAI API)
+emoji-translator/        - Text to emoji translator
+sharkbait/               - Ocean-themed code reviewer (no API needed)
+vibe_oracle.py           - Chaotic vibe generator
+swarm_chaos.py           - Swarm chaos engine
+swarm_mascot.py          - ASCII art mascot
+
+prompts/                 - System prompts for Azure agents
+docs/                    - Research notes and design plans
+src/                     - TypeScript agent framework prototype (unfinished)
+
+Backlog.md               - Completed work archive
+AGENTS.md                - Workflow instructions (beads + Backlog)
+CHANGELOG.md             - Change history
+REPO_STRUCTURE.md        - Workspace configuration guide
+```
+
+## How the CLI agent loop works
+
+1. User types a message
+2. Message history + tool definitions sent to Ollama `/api/chat` endpoint
+3. If the model returns `tool_calls` then execute each tool, append results to history
+4. Repeat steps 2-3 until the model returns a final text response (max 15 turns)
+5. Display the response with rich formatting, wait for next input
 
 ## Adding custom tools
 
-Add a new tool in [tools.py](tools.py) using the `@tool` decorator:
+Add a tool in `tools.py` using the `@tool` decorator:
 
 ```python
 @tool(
@@ -299,11 +180,10 @@ Add a new tool in [tools.py](tools.py) using the `@tool` decorator:
     },
 )
 def my_tool(arg1: str) -> str:
-    # Your implementation
     return json.dumps({"result": "..."})
 ```
 
-The tool is automatically registered and available to the agent — no other changes needed.
+The tool is automatically registered and available to the agent.
 
 ## Recent Changes
 
@@ -311,5 +191,6 @@ See [CHANGELOG.md](CHANGELOG.md) for a full history of changes.
 
 ## Contributing
 
-- Track active work in beads (`bd`) and record completions in `Backlog.md` (see [AGENTS.md](AGENTS.md)).
-- Keep internal links relative, maintain the Quick Start and Project Structure sections, and prefer minimal changes per PR.
+- Track active work with beads (`bd`) and record completions in [Backlog.md](Backlog.md) (see [AGENTS.md](AGENTS.md) for the workflow).
+- Keep this README and the project structure section up to date when adding new files or directories.
+- Use relative links for all internal file references.
