@@ -3,7 +3,8 @@
  */
 
 import { BaseAgent, AgentConfig } from './BaseAgent.js';
-import { AgentRole, AgentStatus, Task } from '../types/agent.js';
+import { AgentRole, AgentStatus } from '../types/agent.js';
+import { Task } from '../types/task.js';
 import { logger } from '../utils/logger.js';
 
 export interface WorkerAgentConfig extends Omit<AgentConfig, 'role'> {

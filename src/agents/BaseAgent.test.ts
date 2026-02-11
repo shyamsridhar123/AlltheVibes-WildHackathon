@@ -4,7 +4,8 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { BaseAgent, AgentConfig } from './BaseAgent.js';
-import { AgentRole, AgentStatus, Task, AgentMessage } from '../types/agent.js';
+import { AgentRole, AgentStatus, AgentMessage } from '../types/agent.js';
+import { Task, TaskStatus, TaskPriority, createTask } from '../types/task.js';
 
 // Test implementation of BaseAgent
 class TestAgent extends BaseAgent {
@@ -26,6 +27,7 @@ describe('BaseAgent', () => {
         name: 'test-capability',
         description: 'A test capability',
         version: '1.0.0',
+        enabled: true,
       },
     ],
   };
@@ -72,6 +74,7 @@ describe('BaseAgent', () => {
         name: 'new-capability',
         description: 'A new capability',
         version: '1.0.0',
+        enabled: true,
       });
       expect(agent.hasCapability('new-capability')).toBe(true);
     });
@@ -119,30 +122,22 @@ describe('BaseAgent', () => {
     });
 
     it('should execute task and return result', async () => {
-      const task: Task = {
-        id: 'task-1',
+      const task = createTask({
         type: 'test-task',
-        priority: 1,
+        title: 'Test Task',
         payload: {},
-        status: 'pending',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+      });
 
       const result = await agent.execute(task);
-      expect(result).toEqual({ taskId: 'task-1', result: 'completed' });
+      expect(result).toEqual({ taskId: task.id, result: 'completed' });
     });
 
     it('should change status during execution', async () => {
-      const task: Task = {
-        id: 'task-1',
+      const task = createTask({
         type: 'test-task',
-        priority: 1,
+        title: 'Test Task',
         payload: {},
-        status: 'pending',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+      });
 
       const statusSpy = vi.fn();
       agent.on('status-changed', statusSpy);
@@ -269,6 +264,7 @@ describe('BaseAgent', () => {
         name: 'new-cap',
         description: 'test',
         version: '1.0.0',
+        enabled: true,
       });
 
       const newMetadata = agent.getMetadata();

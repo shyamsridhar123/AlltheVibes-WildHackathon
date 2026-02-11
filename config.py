@@ -14,7 +14,13 @@ API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION", "2024-12-01-preview")
 
 
 def get_client() -> AzureOpenAI:
-    """Create client using Entra ID token auth (falls back to API key if set)."""
+    """Create client using API key if set, otherwise falls back to Entra ID token auth."""
+    if API_KEY:
+        return AzureOpenAI(
+            azure_endpoint=ENDPOINT,
+            api_key=API_KEY,
+            api_version=API_VERSION,
+        )
     token_provider = get_bearer_token_provider(
         DefaultAzureCredential(),
         "https://cognitiveservices.azure.com/.default",
@@ -28,13 +34,16 @@ def get_client() -> AzureOpenAI:
 
 def chat(prompt: str, system: str = "You are a helpful AI assistant.", temperature: float = 0.7) -> str:
     """One-shot chat helper — returns the assistant message as a string."""
-    client = get_client()
-    resp = client.chat.completions.create(
-        model=DEPLOYMENT,
-        temperature=temperature,
-        messages=[
-            {"role": "system", "content": system},
-            {"role": "user", "content": prompt},
-        ],
-    )
-    return resp.choices[0].message.content
+    try:
+        client = get_client()
+        resp = client.chat.completions.create(
+            model=DEPLOYMENT,
+            temperature=temperature,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": prompt},
+            ],
+        )
+        return resp.choices[0].message.content
+    except Exception as e:
+        return f"⚠️ AI request failed: {e}\nCheck your .env configuration (ENDPOINT_URL, AZURE_OPENAI_API_KEY, DEPLOYMENT_NAME)."

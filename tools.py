@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import subprocess
 import datetime
 from typing import Any, Callable
@@ -130,10 +131,22 @@ def get_current_datetime() -> str:
     },
 )
 def shell_command(command: str, timeout: int = 30) -> str:
-    # Block obviously dangerous patterns
-    blocked = ["rm -rf /", "mkfs", "dd if=", ":(){", "fork bomb"]
+    # Block dangerous patterns — broad patterns to catch common bypass attempts
+    blocked = [
+        "rm -rf", "rm -r /", "rmdir /", "mkfs", "dd if=", ":(){", "fork bomb",
+        "> /dev/sd", "chmod -R 777 /", "chown -R", "wget", "curl",
+        "/usr/bin/wget", "/usr/bin/curl",
+        "/etc/passwd", "/etc/shadow", ".ssh/", "id_rsa",
+        "base64 -d", "base64 --decode",
+        "python -c", "python3 -c", "perl -e", "ruby -e", "node -e",
+        "bash -c", "sh -c", "eval ", "exec ",
+        "| sh", "| bash", "|sh", "|bash",
+        "sudo ", "su ", "passwd",
+        "nc ", "netcat ", "ncat ", "telnet ", "ssh ", "scp ",
+    ]
+    cmd_lower = command.lower()
     for b in blocked:
-        if b in command:
+        if b in cmd_lower:
             return json.dumps({"error": f"Blocked dangerous command pattern: {b}"})
     try:
         proc = subprocess.run(
@@ -173,7 +186,15 @@ def shell_command(command: str, timeout: int = 30) -> str:
     },
 )
 def read_file(path: str, max_lines: int = 200) -> str:
-    with open(path, "r", encoding="utf-8", errors="replace") as f:
+    # Restrict reads to the project directory to prevent reading sensitive system files
+    project_root = os.path.dirname(os.path.abspath(__file__))
+    real_path = os.path.realpath(os.path.join(project_root, path) if not os.path.isabs(path) else path)
+    try:
+        if os.path.commonpath([project_root, real_path]) != project_root:
+            return json.dumps({"error": "Access denied: path must be within the project directory"})
+    except ValueError:
+        return json.dumps({"error": "Access denied: path must be within the project directory"})
+    with open(real_path, "r", encoding="utf-8", errors="replace") as f:
         lines = f.readlines()
     total = len(lines)
     truncated = lines[:max_lines]
@@ -207,7 +228,19 @@ def read_file(path: str, max_lines: int = 200) -> str:
     },
 )
 def write_file(path: str, content: str) -> str:
-    with open(path, "w", encoding="utf-8") as f:
+    # Restrict writes to the project directory to prevent writing to sensitive system files
+    project_root = os.path.dirname(os.path.abspath(__file__))
+    real_path = os.path.realpath(os.path.join(project_root, path) if not os.path.isabs(path) else path)
+    try:
+        if os.path.commonpath([project_root, real_path]) != project_root:
+            return json.dumps({"error": "Access denied: path must be within the project directory"})
+    except ValueError:
+        return json.dumps({"error": "Access denied: path must be within the project directory"})
+    # Block writing to sensitive files
+    blocked_names = {".env", ".gitconfig", ".bashrc", ".bash_profile", ".zshrc", ".profile"}
+    if os.path.basename(real_path) in blocked_names:
+        return json.dumps({"error": f"Access denied: cannot write to sensitive file {os.path.basename(real_path)}"})
+    with open(real_path, "w", encoding="utf-8") as f:
         f.write(content)
     return json.dumps({"status": "ok", "path": path, "bytes_written": len(content)})
 

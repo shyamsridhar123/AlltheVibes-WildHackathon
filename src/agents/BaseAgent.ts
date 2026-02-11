@@ -11,8 +11,8 @@ import {
   AgentCapability,
   AgentMetadata,
   AgentMessage,
-  Task,
 } from '../types/agent.js';
+import { Task } from '../types/task.js';
 import { logger } from '../utils/logger.js';
 
 export interface AgentConfig {
