@@ -2,7 +2,7 @@
 
 > *"I don't have time to explain things twice. Read this."*
 
-Last updated: <!-- Update this date when making changes -->
+Last updated: 2026-02-11
 
 ---
 
@@ -11,6 +11,7 @@ Last updated: <!-- Update this date when making changes -->
 | Task | Notes |
 |------|-------|
 | Initial setup | Beth agent system installed |
+| README research refresh | Added quick start, structure, and agent lineup summary |
 
 ---
 
