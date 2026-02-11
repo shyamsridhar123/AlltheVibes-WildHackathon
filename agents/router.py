@@ -101,7 +101,9 @@ def run():
             from agents.chaos_visualizer import run as run_viz
             run_viz()
         elif result["agent"] == "code_reviewer":
-            console.print("\n🔍 [yellow]Tip: run `python main.py review <file>` to review a specific file[/]\n")
+            from agents.code_reviewer import run as run_reviewer
+            console.print("\n🔍 [yellow]Reviewing all Python files in the repo...[/]\n")
+            run_reviewer()
         elif result["agent"] == "sql_generator":
             from agents.sql_generator import run as run_sql
             run_sql(user_input)
